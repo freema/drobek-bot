@@ -113,6 +113,23 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "the agent failed the turn";
 }
 
+/**
+ * Runs one teardown step and hands back what it threw instead of throwing it,
+ * so the steps after it still run. Releasing the box is all-or-nothing in the
+ * wrong direction otherwise: a tail that will not stop would leave the agent
+ * process alive, one per run, forever.
+ */
+async function settle(step: () => Promise<void>): Promise<Error | undefined> {
+  try {
+    await step();
+    return undefined;
+  } catch (error) {
+    return error instanceof Error
+      ? error
+      : new RuntimeError("unavailable", "the box would not release the run");
+  }
+}
+
 /** Answers every permission request still waiting; nobody is going to decide it. */
 function cancelPending(inbox: RunInbox): void {
   for (const waiting of inbox.pending.values()) waiting.respond(CANCELLED);
@@ -202,6 +219,7 @@ export class AcpRuntime implements AgentRuntime {
       return Promise.race([work, gone]);
     };
 
+    let tail: TranscriptTail | undefined;
     try {
       await whileAlive(
         connection.initialize({
@@ -224,10 +242,8 @@ export class AcpRuntime implements AgentRuntime {
       inbox.replaying = false;
       inbox.events.push({ kind: "session_started", sessionId });
 
-      const tail = await tailUsage(
-        computer,
-        transcriptPath(this.#home, this.#cwd, sessionId),
-        (event) => inbox.events.push(event),
+      tail = await tailUsage(computer, transcriptPath(this.#home, this.#cwd, sessionId), (event) =>
+        inbox.events.push(event),
       );
       const run: Run = {
         runId: randomUUID(),
@@ -245,7 +261,11 @@ export class AcpRuntime implements AgentRuntime {
       inbox.ended = true;
       cancelPending(inbox);
       inbox.events.close();
-      await process.kill().catch(() => undefined);
+      // Both steps run; what they throw is dropped because the failure that
+      // brought us here is the one worth reporting.
+      const started = tail;
+      if (started !== undefined) await settle(() => started.stop());
+      await settle(() => process.kill());
       if (error instanceof RuntimeError || error instanceof ComputerError) throw error;
       throw new RuntimeError("unavailable", messageOf(error));
     }
@@ -307,9 +327,11 @@ export class AcpRuntime implements AgentRuntime {
     this.#runs.delete(run.runId);
     run.inbox.ended = true;
     cancelPending(run.inbox);
-    await run.tail.stop();
-    await run.process.kill();
+    const stopped = await settle(() => run.tail.stop());
+    const killed = await settle(() => run.process.kill());
     run.inbox.events.close();
+    if (stopped !== undefined) throw stopped;
+    if (killed !== undefined) throw killed;
   }
 
   #require(handle: RunHandle): Run {

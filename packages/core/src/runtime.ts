@@ -21,8 +21,20 @@ export type ApprovalDecision = "allow_once" | "allow_always" | "reject_once" | "
 /**
  * Everything one run tells the app, in the order it happened.
  *
- * `turn_completed` ends every turn exactly once, including a turn that failed;
- * a failed turn is preceded by an `error` with the reason.
+ * `turn_completed` ends every turn exactly once, including a turn that failed
+ * (a failed turn is preceded by an `error` with the reason). It says the
+ * model's turn ended. It does **not** say the stream is finished, and it is
+ * not a safe place to stop reading.
+ *
+ * In particular, the `usage` of a turn normally arrives *after* that turn's
+ * `turn_completed`, seconds later: token counts are read from the agent's
+ * transcript rather than from the protocol, and the transcript line lands on
+ * its own schedule. A consumer that stops iterating on `turn_completed`
+ * therefore loses the usage of every turn it ever sees, silently — which
+ * quietly turns spend accounting into an undercount and a spend cap into no
+ * cap at all.
+ *
+ * The stream ends when `endRun` closes it. That is the only end there is.
  */
 export type RuntimeEvent =
   | { readonly kind: "session_started"; readonly sessionId: string }
@@ -60,6 +72,7 @@ export type RuntimeEvent =
       readonly mimeType: string;
       readonly data: string;
     }
+  /** May arrive after the `turn_completed` of the turn that spent it. */
   | {
       readonly kind: "usage";
       readonly model: string;
@@ -107,8 +120,8 @@ export interface RunHandle {
  * One agent runtime. Claude over ACP is the first; another agent is another
  * implementation of this interface, not another integration.
  *
- * `events` is consumed once per run and ends when the run does. Every method
- * but `startRun` takes the handle `startRun` returned.
+ * `events` is consumed once per run. Every method but `startRun` takes the
+ * handle `startRun` returned.
  */
 export interface AgentRuntime {
   describe(): RuntimeDescription;
@@ -119,6 +132,11 @@ export interface AgentRuntime {
   resolveApproval(run: RunHandle, approvalId: string, decision: ApprovalDecision): Promise<void>;
   /** Cancels the running turn. The session stays usable. */
   interrupt(run: RunHandle): Promise<void>;
+  /**
+   * The run's events, from the first one. Consumed once, and ended only by
+   * `endRun` — never by `turn_completed`, which leaves that turn's `usage`
+   * still to come.
+   */
   events(run: RunHandle): AsyncIterable<RuntimeEvent>;
   /** Ends the run and releases what it holds in the box. Safe to call twice. */
   endRun(run: RunHandle): Promise<void>;
