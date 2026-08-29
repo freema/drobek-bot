@@ -157,6 +157,46 @@ describe("parseManifest: requires", () => {
   });
 });
 
+describe("parseManifest: secrets", () => {
+  it("defaults to an empty list", () => {
+    const result = parseManifest(MINIMAL);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.value.secrets).toEqual([]);
+  });
+
+  it("accepts a list of valid, unique secret names", () => {
+    const result = parseManifest(
+      manifest(["version: 1", "model: x", "secrets:", "  - GITHUB_TOKEN", "  - SLACK_TOKEN"]),
+    );
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.value.secrets).toEqual(["GITHUB_TOKEN", "SLACK_TOKEN"]);
+  });
+
+  it("rejects a lowercase secret name, with its location", () => {
+    const result = parseManifest(
+      manifest(["version: 1", "model: x", "secrets:", "  - GITHUB_TOKEN", "  - github_token"]),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues[0]?.path).toEqual(["secrets", 1]);
+  });
+
+  it("rejects a duplicate secret name, with its location", () => {
+    const result = parseManifest(
+      manifest(["version: 1", "model: x", "secrets:", "  - GITHUB_TOKEN", "  - GITHUB_TOKEN"]),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      {
+        message: 'secrets[1]: duplicate secret name "GITHUB_TOKEN"',
+        line: 5,
+        path: ["secrets", 1],
+      },
+    ]);
+  });
+});
+
 describe("parseManifest: channels", () => {
   it("accepts any object for now, reserved for a later feature", () => {
     const result = parseManifest(
