@@ -17,12 +17,18 @@ COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
+COPY packages/core/package.json packages/core/
+COPY packages/db/package.json packages/db/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @drobek-bot/api... --filter @drobek-bot/worker...
+    pnpm install --frozen-lockfile \
+      --filter @drobek-bot/api... --filter @drobek-bot/worker... --filter @drobek-bot/core...
 COPY packages/contracts packages/contracts
+COPY packages/core packages/core
+COPY packages/db packages/db
 COPY apps/api apps/api
 COPY apps/worker apps/worker
-RUN pnpm --filter @drobek-bot/contracts --filter @drobek-bot/api --filter @drobek-bot/worker build
+RUN pnpm --filter @drobek-bot/contracts --filter @drobek-bot/core --filter @drobek-bot/db \
+      --filter @drobek-bot/api --filter @drobek-bot/worker build
 
 FROM base AS runtime
 ENV NODE_ENV=production
@@ -31,9 +37,16 @@ COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
+COPY packages/core/package.json packages/core/
+COPY packages/db/package.json packages/db/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile --filter @drobek-bot/api... --filter @drobek-bot/worker...
+    pnpm install --prod --frozen-lockfile \
+      --filter @drobek-bot/api... --filter @drobek-bot/worker... --filter @drobek-bot/core...
 COPY --from=build /app/packages/contracts/dist packages/contracts/dist
+COPY --from=build /app/packages/core/dist packages/core/dist
+COPY --from=build /app/packages/db/dist packages/db/dist
+# The migrator reads the SQL at runtime, next to dist/.
+COPY packages/db/drizzle packages/db/drizzle
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist
 
