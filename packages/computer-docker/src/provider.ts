@@ -141,14 +141,20 @@ export function createDockerComputerProvider(
       const botId = parseBotId(id);
       const found = await findManaged(client, botId);
       if (found === undefined) return undefined;
-      if (!found.running) await client.startContainer(found.id);
+      // Unconditionally, never gated on the listing's `running` flag: that
+      // flag is a snapshot, and a container on its way down still reads as
+      // running. Starting an already-running container is a no-op (304), and
+      // it is the only way the caller gets a box that is actually up.
+      await client.startContainer(found.id);
       return new DockerComputer(client, botId, found.id);
     },
 
     async stop(id: string): Promise<void> {
       const botId = parseBotId(id);
       const found = await findManaged(client, botId);
-      if (found === undefined || !found.running) return;
+      if (found === undefined) return;
+      // Same reason as `reconnect`: stopping an already-stopped container is
+      // a no-op (304), and the flag cannot be trusted to say which it is.
       await client.stopContainer(found.id);
     },
 

@@ -20,6 +20,8 @@ export interface ContainerSummary {
   /** Without the leading slash the API puts on it. */
   readonly name: string;
   readonly labels: Readonly<Record<string, string>>;
+  /** A snapshot for reporting only; a container on its way down still reads
+   * as running, so no lifecycle action may be gated on it. */
   readonly running: boolean;
 }
 
