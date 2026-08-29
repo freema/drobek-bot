@@ -118,23 +118,214 @@ describe("bots/examples: core tools follow read freely, write with approval, des
   }
 });
 
+/**
+ * The real tool surfaces of the MCP servers the example gallery declares,
+ * captured 2026-08-29 against the upstream source trees — not invented by
+ * generalizing one server's naming onto another (that mistake is why this
+ * file once asserted on `mcp__sentry__list_issues`, a tool Sentry has never
+ * exposed):
+ *
+ *   - github: github.com/github/github-mcp-server, the tool list in its README
+ *   - sentry: github.com/getsentry/sentry-mcp, tool definitions under
+ *     packages/mcp-core/src/tools/catalog/, plus the two "special" tools in
+ *     tools/special/, which reach clients as `search_sentry_tools` and
+ *     `execute_sentry_tool`
+ *
+ * `playwright` has no recorded surface here on purpose: the ratchet test
+ * below skips any server that isn't a key of this table.
+ *
+ * `mcpTool` is the only way this file spells out an `mcp__<server>__<tool>`
+ * literal, so a name that isn't in the surface below fails fast at module
+ * load instead of quietly asserting on a tool that doesn't exist.
+ */
+const MCP_TOOL_SURFACE: Record<string, ReadonlySet<string>> = {
+  github: new Set([
+    "actions_get",
+    "actions_list",
+    "actions_run_trigger",
+    "add_comment_to_pending_review",
+    "add_issue_comment",
+    "add_reply_to_pull_request_comment",
+    "assign_copilot_to_issue",
+    "assign_copilot_to_issue_with_intent",
+    "create_branch",
+    "create_gist",
+    "create_or_update_file",
+    "create_pull_request",
+    "create_pull_request_with_copilot",
+    "create_repository",
+    "delete_file",
+    "delete_repository",
+    "discussion_comment_write",
+    "dismiss_notification",
+    "fork_repository",
+    "get_code_quality_finding",
+    "get_code_scanning_alert",
+    "get_commit",
+    "get_copilot_space",
+    "get_dependabot_alert",
+    "get_discussion",
+    "get_discussion_comments",
+    "get_file_contents",
+    "get_gist",
+    "get_global_security_advisory",
+    "get_job_logs",
+    "get_label",
+    "get_latest_release",
+    "get_me",
+    "get_notification_details",
+    "get_release_by_tag",
+    "get_repository_tree",
+    "get_secret_scanning_alert",
+    "get_tag",
+    "get_team_members",
+    "get_teams",
+    "github_support_docs_search",
+    "issue_read",
+    "issue_write",
+    "label_write",
+    "list_branches",
+    "list_code_scanning_alerts",
+    "list_commits",
+    "list_copilot_spaces",
+    "list_dependabot_alerts",
+    "list_discussion_categories",
+    "list_discussions",
+    "list_gists",
+    "list_global_security_advisories",
+    "list_issue_fields",
+    "list_issue_types",
+    "list_issues",
+    "list_label",
+    "list_notifications",
+    "list_org_repository_security_advisories",
+    "list_pull_requests",
+    "list_releases",
+    "list_repository_collaborators",
+    "list_repository_security_advisories",
+    "list_secret_scanning_alerts",
+    "list_starred_repositories",
+    "list_tags",
+    "manage_notification_subscription",
+    "manage_repository_notification_subscription",
+    "mark_all_notifications_read",
+    "merge_pull_request",
+    "projects_get",
+    "projects_list",
+    "projects_write",
+    "pull_request_read",
+    "pull_request_review_write",
+    "push_files",
+    "request_copilot_review",
+    "search_code",
+    "search_commits",
+    "search_issues",
+    "search_orgs",
+    "search_pull_requests",
+    "search_repositories",
+    "search_users",
+    "star_repository",
+    "sub_issue_write",
+    "unstar_repository",
+    "update_gist",
+    "update_pull_request",
+    "update_pull_request_branch",
+  ]),
+  sentry: new Set([
+    // read-only
+    "whoami",
+    "find_organizations",
+    "find_projects",
+    "find_teams",
+    "find_releases",
+    "find_dsns",
+    "find_monitors",
+    "find_alert_rules",
+    "find_dashboards",
+    "find_uptime_monitors",
+    "get_issue_details",
+    "get_issue_activity",
+    "get_issue_breadcrumbs",
+    "get_issue_tag_values",
+    "get_issue_user_reports",
+    "get_doc",
+    "get_event_attachment",
+    "get_event_stacktrace",
+    "get_trace_details",
+    "get_span_details",
+    "get_profile",
+    "get_profile_details",
+    "get_release_details",
+    "get_replay_details",
+    "get_sentry_resource",
+    "get_alert_rule",
+    "get_dashboard_details",
+    "get_monitor_details",
+    "get_uptime_monitor_details",
+    "get_agent_conversation_details",
+    "search_docs",
+    "search_events",
+    "search_issues",
+    "search_issue_events",
+    "search_agent_conversations",
+    "search_tools",
+    // writing
+    "add_issue_note",
+    "add_team_to_project",
+    "create_dsn",
+    "create_project",
+    "create_team",
+    "create_uptime_monitor",
+    "update_dsn",
+    "update_issue",
+    "update_project",
+    "update_uptime_monitor",
+    "remove_team_from_project",
+    "onboarding_status_update",
+    "analyze_issue_with_seer",
+    // destructive / raw
+    "delete_uptime_monitor",
+    "execute_sentry_tool",
+    "search_sentry_tools",
+  ]),
+};
+
+/** Spells `mcp__<server>__<tool>`, refusing at module load a `tool` that isn't on the recorded surface. */
+function mcpTool(server: string, tool: string): string {
+  if (!MCP_TOOL_SURFACE[server]?.has(tool)) {
+    throw new Error(`"${tool}" is not on the recorded ${server} MCP tool surface`);
+  }
+  return `mcp__${server}__${tool}`;
+}
+
 describe("bots/examples: MCP servers deny the destructive tools, allow the read-only ones", () => {
   const READ_ONLY_TOOLS: Record<string, readonly string[]> = {
     github: [
-      "mcp__github__list_issues",
-      "mcp__github__get_pull_request",
-      "mcp__github__search_issues",
+      mcpTool("github", "list_issues"),
+      mcpTool("github", "list_pull_requests"),
+      mcpTool("github", "search_issues"),
+      mcpTool("github", "pull_request_read"),
+      mcpTool("github", "issue_read"),
+      mcpTool("github", "get_file_contents"),
     ],
-    sentry: ["mcp__sentry__list_issues", "mcp__sentry__get_issue", "mcp__sentry__search_issues"],
+    sentry: [
+      mcpTool("sentry", "whoami"),
+      mcpTool("sentry", "find_organizations"),
+      mcpTool("sentry", "find_projects"),
+      mcpTool("sentry", "get_issue_details"),
+      mcpTool("sentry", "search_issues"),
+      mcpTool("sentry", "search_events"),
+    ],
   };
 
   const DENY_TOOLS: Record<string, readonly string[]> = {
     github: [
-      "mcp__github__merge_pull_request",
-      "mcp__github__delete_repository",
-      "mcp__github__delete_workflow_run_logs",
+      mcpTool("github", "merge_pull_request"),
+      mcpTool("github", "delete_repository"),
+      mcpTool("github", "delete_file"),
+      mcpTool("github", "push_files"),
     ],
-    sentry: ["mcp__sentry__delete_issue"],
+    sentry: [mcpTool("sentry", "delete_uptime_monitor"), mcpTool("sentry", "execute_sentry_tool")],
   };
 
   for (const slug of exampleDirs) {
@@ -216,6 +407,43 @@ describe("bots/examples: MCP servers deny the destructive tools, allow the read-
       `browser_navigate decided "${decision}"`,
     ).toBe(true);
   });
+});
+
+/**
+ * The ratchet that would have caught the phantom-tool bug this file used to
+ * carry: every literal `mcp__<server>__<tool>` pattern a bot's policy names
+ * must be a tool the server actually exposes, per `MCP_TOOL_SURFACE` above.
+ * A wildcard (`mcp__github__delete_*`) is exempt on purpose — a broad `deny`
+ * glob covering tools that don't exist yet is deliberate fail-safe design,
+ * not a claim that every expansion is real. Servers with no recorded
+ * surface (`playwright`) are skipped entirely.
+ */
+describe("bots/examples: every literal MCP tool a policy names is real", () => {
+  for (const slug of exampleDirs) {
+    for (const serverName of declaredMcpServerNames(slug)) {
+      const surface = MCP_TOOL_SURFACE[serverName];
+      if (surface === undefined) continue;
+
+      it(`${slug}: literal mcp__${serverName}__* patterns in policy.approvals name real tools`, async () => {
+        const bot = await loadExampleBot(slug);
+        const approvals = approvalsOf(bot, slug);
+        const prefix = `mcp__${serverName}__`;
+        const literalPatterns = [
+          ...(approvals.deny ?? []),
+          ...(approvals.require ?? []),
+          ...(approvals.allow ?? []),
+        ].filter((pattern) => pattern.startsWith(prefix) && !pattern.endsWith("*"));
+
+        for (const pattern of literalPatterns) {
+          const tool = pattern.slice(prefix.length);
+          expect(
+            surface.has(tool),
+            `${slug}: "${pattern}" names a ${serverName} tool that doesn't exist`,
+          ).toBe(true);
+        }
+      });
+    }
+  }
 });
 
 interface CronFields {
