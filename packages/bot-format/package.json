@@ -1,0 +1,31 @@
+{
+  "name": "@drobek-bot/bot-format",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The bot folder format: parsers, the folder loader and the mapping onto a Claude Code project in the box",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "validate": "pnpm --filter @drobek-bot/bot-format... --reporter=silent build && node dist/cli/validate.js"
+  },
+  "dependencies": {
+    "@drobek-bot/contracts": "workspace:*",
+    "yaml": "^2.9.0",
+    "zod": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

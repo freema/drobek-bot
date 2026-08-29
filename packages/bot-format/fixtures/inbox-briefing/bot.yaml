@@ -1,0 +1,52 @@
+# The reference bot: every section of the format in use.
+version: 1
+model: claude-haiku-4-5
+auth: api_key
+browser: host-cdp
+requires: []
+
+mcp:
+  github:
+    catalog: github
+  mail-archive:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/bot/work/archive"]
+
+routines:
+  - name: weekday-briefing
+    cron: "30 7 * * 1-5"
+    timezone: Europe/Prague
+    prompt: Prepare this morning's briefing following the briefing skill, then update memory/progress.md.
+
+budget:
+  per_run_usd: 0.25
+  per_day_usd: 1
+
+# Precedence: deny, then require, then allow. Unlisted tools ask.
+policy:
+  approvals:
+    deny:
+      - mcp__github__delete_*
+    require:
+      - Bash
+      - WebFetch
+      - mcp__github__create_*
+      - mcp__github__update_*
+      - mcp__github__add_*
+      - mcp__github__merge_*
+      - mcp__mail-archive__write_*
+      - mcp__mail-archive__edit_*
+      - mcp__mail-archive__create_*
+      - mcp__mail-archive__move_*
+    allow:
+      - Read
+      - Glob
+      - Grep
+      - ToolSearch
+      - mcp__github__get_*
+      - mcp__github__list_*
+      - mcp__github__search_*
+      - mcp__mail-archive__read_*
+      - mcp__mail-archive__list_*
+      - mcp__mail-archive__search_*
+      - mcp__mail-archive__get_*
