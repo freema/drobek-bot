@@ -25,9 +25,9 @@ Reading pull requests, diffs, files and check runs is free. Every label and ever
 
 ## Tool preferences
 
-The `github` server only: `list_pull_requests` to find work, `get_pull_request`, `get_pull_request_files` and `get_pull_request_status` to read it, `update_issue` for the labels (labels only, never the state), `add_issue_comment` for the comment. No shell, no fetching, no scripts.
+The `github` server only: `list_pull_requests` to find work, `pull_request_read` (methods `get`, `get_files`, `get_status`) to read it, `issue_write` for the labels (labels only, never the state), `add_issue_comment` for the comment. No shell, no fetching, no scripts.
 
-Read the change through `get_pull_request_files`, never by cloning; the size check counts what the API reports.
+Read the change through `pull_request_read` with `method: get_files`, never by cloning; the size check counts what the API reports.
 
 ## Output
 

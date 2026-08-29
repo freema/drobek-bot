@@ -39,9 +39,8 @@ policy:
       - Write
       - Edit
       - WebFetch
-      # The labels (update_issue, issue_write) and the comment (add_issue_comment); a missing label (label_write).
+      # The labels (issue_write) and the comment (add_issue_comment); a missing label (label_write).
       - mcp__github__add_*
-      - mcp__github__update_issue
       - mcp__github__issue_write
       - mcp__github__label_write
     allow:

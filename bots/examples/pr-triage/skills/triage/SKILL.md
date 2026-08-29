@@ -12,7 +12,7 @@ description: Runs new and updated pull requests through the triage checklist (si
 
 ## Phase 2: the checklist
 
-3. `get_pull_request`, `get_pull_request_files` and `get_pull_request_status` for each pull request that is work, then:
+3. `pull_request_read` with `method: get`, `get_files` and `get_status` for each pull request that is work, then:
 
 | Check       | Rule                                                              | Label               | Comment                                                           |
 | ----------- | ----------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------- |
@@ -26,7 +26,7 @@ description: Runs new and updated pull requests through the triage checklist (si
 
 ## Phase 3: apply, with approval
 
-5. For each pull request, propose the labels through `update_issue` (labels only, never state, title or body) and the comment through `add_issue_comment`. Each call asks; say in one line what you are about to send before you call.
+5. For each pull request, propose the labels through `issue_write` (labels only, never state, title or body) and the comment through `add_issue_comment`. Each call asks; say in one line what you are about to send before you call.
 6. A label the repository does not have: never create it silently. `label_write` asks; if the person denies, mention the missing label in the run report instead.
 7. Append the run report to `memory/runs/<YYYY-MM-DD>.md` and rewrite `memory/progress.md` with the head commit of every pull request triaged.
 

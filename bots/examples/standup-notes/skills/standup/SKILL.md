@@ -18,7 +18,7 @@ description: Writes the three-line standup draft (yesterday, today, blockers) fr
    - `search_pull_requests` with `author:@me is:open updated:<window>`, then `list_commits` on each pull request's head branch with `author` and `since` for the commits pushed in the window
 4. Today:
    - `search_pull_requests` with `is:open review-requested:@me`
-   - the person's open pull requests whose `get_pull_request_status` reports a failing check
+   - the person's open pull requests whose `pull_request_read` with `method: get_status` reports a failing check
 5. Blockers: a pull request of the person's waiting for review for more than two working days, a failing check older than a day, and whatever `memory/progress.md` carried over that still stands.
 
 ## Phase 3: write

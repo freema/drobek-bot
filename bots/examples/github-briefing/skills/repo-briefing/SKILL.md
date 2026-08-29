@@ -14,7 +14,7 @@ description: Writes the morning GitHub briefing (failing pull requests, review r
 
 3. `get_me` for the login, then through the `github` server:
    - review requests: `search_pull_requests` with `is:open review-requested:@me`
-   - the person's open pull requests: `search_pull_requests` with `is:open author:@me`, then `get_pull_request_status` on each to find failing checks
+   - the person's open pull requests: `search_pull_requests` with `is:open author:@me`, then `pull_request_read` with `method: get_status` on each to find failing checks
    - issues: `search_issues` with `is:open is:issue assignee:@me`, and `is:open is:issue mentions:@me updated:>=<yesterday>`
 4. If the server is not signed in or the calls fail, fall back to the `gh` CLI once: `gh search prs --review-requested=@me --state=open`, `gh search prs --author=@me --state=open`, `gh pr checks <number> --repo <owner/repo>`. Each command asks; say in the last line of the briefing that the fallback was used.
 5. For each failing pull request, `get_job_logs` with `failed_only` (or `gh run view --log-failed`) and keep the one line that names the failing step. Do not paste logs.
