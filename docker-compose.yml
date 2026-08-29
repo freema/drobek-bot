@@ -1,0 +1,104 @@
+# Local stack: postgres, redis, api, worker and web (nginx serving the SPA and
+# proxying /api/ to the api). Datastores publish on non-default host ports so
+# they do not collide with other local stacks; the api is reached only through
+# the web proxy. Values come from .env (see .env.example).
+name: drobek-bot
+
+x-app-build: &app-build
+  context: .
+  args:
+    GIT_SHA: ${GIT_SHA:-dev}
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-drobek}:${POSTGRES_PASSWORD:-drobek}@postgres:5432/${POSTGRES_DB:-drobek_bot}
+  REDIS_URL: redis://redis:6379
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-drobek}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drobek}
+      POSTGRES_DB: ${POSTGRES_DB:-drobek_bot}
+    ports:
+      - "${POSTGRES_PUBLISH:-5450}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-drobek} -d ${POSTGRES_DB:-drobek_bot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PUBLISH:-6390}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: *app-build
+    image: drobek-bot-app
+    restart: unless-stopped
+    command: ["node", "apps/api/dist/main.js"]
+    environment:
+      <<: *app-env
+      PORT: "3000"
+    healthcheck:
+      # Fails on 503, so "healthy" means every check in /api/health is ok.
+      test: ["CMD-SHELL", "wget -q -T 5 -O - http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: *app-build
+    image: drobek-bot-app
+    restart: unless-stopped
+    command: ["node", "apps/worker/dist/main.js"]
+    environment:
+      <<: *app-env
+    volumes:
+      # Part of the intended topology, unused by the walking skeleton: the
+      # worker will start bot containers and mount user bots from ./bots.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./bots:/bots
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: drobek-bot-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PUBLISH:-3050}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 5 -O - http://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
