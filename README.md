@@ -61,14 +61,14 @@ Prebuilt images and a two-file compose are coming with the first public release.
 
 ## Example bots
 
-[`bots/examples/`](./bots/examples) holds five complete bot folders: `BOT.md`, `bot.yaml`, one skill and a `memory/` template each, written to the [bot folder format](./docs/bot-format.md). You can copy one into `./bots` today, replace the placeholders and validate it; running it comes with the runtime (planned), so a copied bot does nothing yet. Each card says what the bot does, when it runs, what asks for your approval and what it never does.
+[`bots/examples/`](./bots/examples) holds five complete bot folders: `BOT.md`, `bot.yaml`, one skill and a `memory/` template each, written to the [bot folder format](./docs/bot-format.md). You can copy one into `./bots` today, replace the placeholders and validate it; running it comes with the runtime (planned), so a copied bot does nothing yet. Each card says what the bot does, when it runs, what asks for your approval, and what its policy denies outright: a denied call is refused without asking, everything under **Asks** happens only if you approve it.
 
 ### Inbox briefing
 
 - **Does:** reads what arrived in your webmail overnight, in your own Chrome tab, and writes one short briefing to `memory/briefings/<date>.md`.
 - **Runs:** weekdays at 07:30 (`Europe/Prague`).
-- **Asks:** every click, keystroke, tab switch and navigation in your browser; writing a file.
-- **Never:** sends, replies, archives or deletes; runs a script in your browser.
+- **Asks:** every click, keystroke, tab switch and navigation in your browser; writing a file; every shell command.
+- **Never:** runs a script in your browser, uploads a file, or closes it. Sending, replying, archiving and deleting are clicks, so the bot has to ask for each one.
 
 Add to drobek bot:
 
@@ -95,8 +95,8 @@ pnpm --filter @drobek-bot/bot-format validate bots/github-briefing
 
 - **Does:** runs new and updated pull requests through a checklist (size, missing description, failing checks) and proposes labels and at most one comment each.
 - **Runs:** weekdays at 09:15, 12:15 and 15:15.
-- **Asks:** every label and every comment, with the text shown.
-- **Never:** merges, closes, pushes, creates or reviews anything; it has no shell.
+- **Asks:** every label and every comment, with the text shown; creating a label the repository does not have.
+- **Never:** merges, pushes, reviews, or opens a pull request; it has no shell, so nothing it does can reach a branch.
 
 Add to drobek bot:
 
@@ -109,7 +109,7 @@ pnpm --filter @drobek-bot/bot-format validate bots/pr-triage
 
 - **Does:** looks at new and regressed Sentry issues, groups them by cause and drafts an incident note in `memory/incidents/<date>.md`; most hours it reports nothing in one line.
 - **Runs:** every hour, five past.
-- **Asks:** assigning or resolving an issue, running Seer, writing the note.
+- **Asks:** assigning or resolving an issue, running Seer, writing the note, every shell command.
 - **Never:** deletes anything or calls the raw Sentry API.
 
 Add to drobek bot:
@@ -123,8 +123,8 @@ pnpm --filter @drobek-bot/bot-format validate bots/sentry-watch
 
 - **Does:** turns yesterday's commits, closed issues and today's open review requests into a three-line standup draft in `memory/standups/<date>.md`.
 - **Runs:** weekdays at 08:45.
-- **Asks:** posting the draft anywhere; writing the file.
-- **Never:** merges, deletes, pushes, or reports on anyone but you.
+- **Asks:** posting the draft anywhere; writing the file; every shell command.
+- **Never:** merges, deletes or pushes. It reports on your own work only, never on anyone else's.
 
 Add to drobek bot:
 
