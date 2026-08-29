@@ -11,6 +11,19 @@ Named bots with their own isolated computer, skills and routines. Every action o
 
 > Status: pre-alpha. Nothing runs yet — the walking skeleton is being built. Watch the repo.
 
+## Quickstart (developers)
+
+Requires Docker with Compose, Node 22, pnpm 10 and [Task](https://taskfile.dev).
+
+```sh
+git clone https://github.com/freema/drobek-bot.git
+cd drobek-bot
+cp .env.example .env
+docker compose up -d --build --wait
+```
+
+Open <http://localhost:3050>: the page shows the api version, commit and the health checks, and `curl localhost:3050/api/health` returns the same as JSON. `task check` runs the gate (typecheck, lint, tests); `task dev`, `task stop`, `task reset` and `task logs` drive the stack.
+
 ## License
 
 AGPL-3.0 — see [LICENSE](./LICENSE).
