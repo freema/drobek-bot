@@ -1,0 +1,17 @@
+{
+  "name": "@drobek-bot/policy-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repository policy tests: what the tracked files must and must not contain",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
