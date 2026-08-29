@@ -30,6 +30,7 @@ interface FakeState {
   removedContainers: string[];
   removedVolumes: string[];
   stopped: string[];
+  started: string[];
 }
 
 function createFake(state: FakeState): DockerClient {
@@ -64,6 +65,7 @@ function createFake(state: FakeState): DockerClient {
     // provider that only calls `stopContainer` on a running box (idempotent
     // stop) can be driven and observed through this double.
     startContainer: (id) => {
+      state.started.push(id);
       state.containers = state.containers.map((container) =>
         container.id === id ? { ...container, running: true } : container,
       );
@@ -105,6 +107,7 @@ function emptyState(): FakeState {
     removedContainers: [],
     removedVolumes: [],
     stopped: [],
+    started: [],
   };
 }
 
@@ -280,6 +283,45 @@ describe("createDockerComputerProvider", () => {
     expect(state.volumes).toEqual([
       { name: volumeName("scout"), labels: { [MANAGED_LABEL]: "true", [BOT_ID_LABEL]: "scout" } },
     ]);
+  });
+
+  it("reconnect starts the container even when the listing's running flag is stale-true", async () => {
+    // The Docker API's listing is a snapshot: a container on its way down can
+    // still be reported as running. `reconnect` must not trust that flag and
+    // skip the start — it must call `startContainer` regardless, because
+    // that is the only way the caller gets a box that is actually up.
+    const state = emptyState();
+    const id = `id-${containerName("scout")}`;
+    state.containers.push({
+      id,
+      name: containerName("scout"),
+      labels: boxLabels("scout"),
+      running: true,
+    });
+    const provider = createDockerComputerProvider({ client: createFake(state) });
+
+    const computer = await provider.reconnect("scout");
+
+    expect(computer).toBeDefined();
+    expect(state.started).toEqual([id]);
+  });
+
+  it("stop stops the container even when the listing's running flag is stale-false", async () => {
+    // The mirror case: a container on its way up can still be reported as
+    // stopped. `stop` must call `stopContainer` regardless of that flag.
+    const state = emptyState();
+    const id = `id-${containerName("scout")}`;
+    state.containers.push({
+      id,
+      name: containerName("scout"),
+      labels: boxLabels("scout"),
+      running: false,
+    });
+    const provider = createDockerComputerProvider({ client: createFake(state) });
+
+    await provider.stop("scout");
+
+    expect(state.stopped).toEqual([id]);
   });
 
   it("reconnect resolves to undefined for a bot that was never provisioned", async () => {
