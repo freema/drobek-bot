@@ -7,6 +7,7 @@
 - [README](https://raw.githubusercontent.com/freema/drobek-bot/main/README.md): what it is, how to start it, how it works, security model, comparison with similar products, roadmap, FAQ
 - [Bot box](https://raw.githubusercontent.com/freema/drobek-bot/main/box/README.md): the box image, the two ways to authenticate, and the measured findings of the ACP spike (events, permission gate, host Chrome over CDP, session resume, cost cap, numbers)
 - [Setup prompt](https://raw.githubusercontent.com/freema/drobek-bot/main/SETUP_PROMPT.md): a prompt to paste into an AI agent that installs drobek bot on a computer and reports the health check
+- [Example bots](https://github.com/freema/drobek-bot/tree/main/bots/examples): five complete bot folders (inbox briefing, GitHub briefing, PR triage, Sentry watch, standup notes) written to the bot folder format in docs/bot-format.md, ready to copy into ./bots and validate; running them comes with the runtime
 - [AGENTS.md](https://raw.githubusercontent.com/freema/drobek-bot/main/AGENTS.md): the contract for agents and contributors working on the repository (what is being built, keep it thin, language, roles, tests, security rules)
 - [docs/](https://github.com/freema/drobek-bot/tree/main/docs): working notes; `progress.md` holds the current state of the work
 
