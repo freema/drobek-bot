@@ -26,6 +26,7 @@ import {
   type AttachedProcess,
   type CommandResult,
   type Computer,
+  type ComputerErrorKind,
   type FileEntry,
   type RuntimeEvent,
 } from "@drobek-bot/core";
@@ -128,8 +129,17 @@ interface FakeComputer {
   readonly transcriptProcesses: TrackedProcess[];
   readonly writeCalls: { path: string; text: string }[];
   readonly operationLog: string[];
+  /** Appends a line to the on-disk transcript and streams it live, as the real CLI does. */
   pushTranscriptLine(line: string): void;
+  /**
+   * Appends a line to the on-disk transcript WITHOUT streaming it live — models a line the
+   * live tail never delivered (arrived after the app stopped watching, or was never seen in
+   * time), which is only visible to a later full read of the file.
+   */
+  appendTranscriptLineOffline(line: string): void;
   seedFile(path: string, content: string): void;
+  /** Every later `readFile` for the transcript (not the settings file) rejects with this kind. */
+  failTranscriptReadWith(kind: ComputerErrorKind): void;
 }
 
 function createFakeComputer(agentFactory: () => TrackedProcess): FakeComputer {
@@ -139,10 +149,21 @@ function createFakeComputer(agentFactory: () => TrackedProcess): FakeComputer {
   const writeCalls: { path: string; text: string }[] = [];
   const operationLog: string[] = [];
   const files = new Map<string, Uint8Array>();
+  /** The transcript file's current bytes on "disk". `undefined` means it was never written. */
+  let transcriptContent: string | undefined;
+  let transcriptReadFailure: ComputerErrorKind | undefined;
 
   /** Settings-file paths may or may not be exactly `SETTINGS_FILE`; match by suffix either way. */
   function settingsKey(path: string): string {
     return path === SETTINGS_FILE || path.endsWith(SETTINGS_FILE) ? SETTINGS_FILE : path;
+  }
+
+  function appendTranscriptLine(line: string, streamLive: boolean): void {
+    transcriptContent = `${transcriptContent ?? ""}${line}\n`;
+    if (!streamLive) return;
+    const stream = transcriptStreams.at(-1);
+    if (stream === undefined) throw new Error("no transcript process attached yet");
+    stream.write(`${line}\n`);
   }
 
   const computer: Computer = {
@@ -167,9 +188,18 @@ function createFakeComputer(agentFactory: () => TrackedProcess): FakeComputer {
     },
     readFile: (path: string): Promise<Uint8Array> => {
       operationLog.push("readFile");
-      const content = files.get(settingsKey(path));
-      if (content === undefined) return Promise.reject(new ComputerError("file-not-found"));
-      return Promise.resolve(content);
+      if (path === SETTINGS_FILE || path.endsWith(SETTINGS_FILE)) {
+        const content = files.get(settingsKey(path));
+        if (content === undefined) return Promise.reject(new ComputerError("file-not-found"));
+        return Promise.resolve(content);
+      }
+      // Any other path is a transcript read — the only other file this runtime reads.
+      if (transcriptReadFailure !== undefined) {
+        return Promise.reject(new ComputerError(transcriptReadFailure));
+      }
+      if (transcriptContent === undefined)
+        return Promise.reject(new ComputerError("file-not-found"));
+      return Promise.resolve(new TextEncoder().encode(transcriptContent));
     },
     writeFile: (path: string, bytes: Uint8Array): Promise<void> => {
       operationLog.push("writeFile");
@@ -186,13 +216,13 @@ function createFakeComputer(agentFactory: () => TrackedProcess): FakeComputer {
     transcriptProcesses,
     writeCalls,
     operationLog,
-    pushTranscriptLine: (line: string) => {
-      const stream = transcriptStreams.at(-1);
-      if (stream === undefined) throw new Error("no transcript process attached yet");
-      stream.write(`${line}\n`);
-    },
+    pushTranscriptLine: (line: string) => appendTranscriptLine(line, true),
+    appendTranscriptLineOffline: (line: string) => appendTranscriptLine(line, false),
     seedFile: (path: string, content: string) => {
       files.set(settingsKey(path), new TextEncoder().encode(content));
+    },
+    failTranscriptReadWith: (kind: ComputerErrorKind) => {
+      transcriptReadFailure = kind;
     },
   };
 }
@@ -222,6 +252,43 @@ function expectApprovalRequest(
     throw new Error("expected the last collected event to be an approval_request");
   }
   return found;
+}
+
+/** `iterator.next()`, but a stuck producer fails the pull instead of hanging the suite. */
+async function nextWithTimeout(
+  iterator: AsyncIterator<RuntimeEvent>,
+  ms: number,
+): Promise<IteratorResult<RuntimeEvent>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<IteratorResult<RuntimeEvent>>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`iterator.next() did not settle within ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([iterator.next(), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Pulls the rest of the stream to its `done`, bounded on both axes: a stream that never
+ * closes fails this call instead of hanging the test — the same failure a real consumer left
+ * iterating forever would want reported, not silently tolerated.
+ */
+async function drainRemaining(
+  iterator: AsyncIterator<RuntimeEvent>,
+  maxEvents = 10,
+): Promise<RuntimeEvent[]> {
+  const collected: RuntimeEvent[] = [];
+  for (let i = 0; i < maxEvents; i += 1) {
+    const result = await nextWithTimeout(iterator, 200);
+    if (result.done === true) return collected;
+    collected.push(result.value);
+  }
+  throw new Error(`stream did not close within ${maxEvents} further events`);
 }
 
 describe("AcpRuntime", () => {
@@ -786,5 +853,197 @@ describe("AcpRuntime", () => {
     expect(writeIndex).toBeGreaterThanOrEqual(0);
     expect(agentAttachIndex).toBeGreaterThanOrEqual(0);
     expect(writeIndex).toBeLessThan(agentAttachIndex);
+  });
+
+  it("emits usage the live tail never delivered before the stream ends, once endRun reconciles the transcript", async () => {
+    const fake = createFakeComputer(() =>
+      createFakeAgentProcess({
+        prompt: async (params, connection) => {
+          await connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } },
+          });
+          return { stopReason: "end_turn" };
+        },
+      }),
+    );
+
+    const runtime = new AcpRuntime();
+    const handle = await runtime.startRun({ computer: fake.computer, prompt: "hi" });
+    const iterator = runtime.events(handle)[Symbol.asyncIterator]();
+
+    const turn = await collectTurn(iterator);
+    expect(turn.some((e) => e.kind === "usage")).toBe(false);
+
+    // On disk, but never streamed live — exactly what a consumer that stopped at
+    // turn_completed would silently miss.
+    fake.appendTranscriptLineOffline(
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          id: "msg_1",
+          model: "claude-haiku-4-5",
+          usage: {
+            input_tokens: 7,
+            output_tokens: 9,
+            cache_read_input_tokens: 2,
+            cache_creation_input_tokens: 3,
+          },
+        },
+      }),
+    );
+
+    await runtime.endRun(handle);
+    // Draining to the end is the only way this usage event is ever seen.
+    const tail = await drainRemaining(iterator);
+
+    expect(tail).toContainEqual({
+      kind: "usage",
+      model: "claude-haiku-4-5",
+      inputTokens: 7,
+      outputTokens: 9,
+      cacheReadTokens: 2,
+      cacheWriteTokens: 3,
+    });
+    expect(tail.filter((e) => e.kind === "usage")).toHaveLength(1);
+  });
+
+  it("does not double-count a usage line the live tail already delivered, but does count a rewrite of the same message", async () => {
+    const fake = createFakeComputer(() =>
+      createFakeAgentProcess({
+        prompt: async (params, connection) => {
+          await connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } },
+          });
+          return { stopReason: "end_turn" };
+        },
+      }),
+    );
+
+    const runtime = new AcpRuntime();
+    const handle = await runtime.startRun({ computer: fake.computer, prompt: "hi" });
+    const iterator = runtime.events(handle)[Symbol.asyncIterator]();
+
+    fake.pushTranscriptLine(
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          id: "msg_1",
+          model: "claude-haiku-4-5",
+          usage: { input_tokens: 10, output_tokens: 5 },
+        },
+      }),
+    );
+
+    const live = await collectUntil(iterator, (e) => e.kind === "usage");
+    expect(live).toContainEqual({
+      kind: "usage",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+
+    const turnRest = await collectTurn(iterator);
+    expect(turnRest.some((e) => e.kind === "usage")).toBe(false);
+
+    // Same message id, but the message grew: a genuinely new record, only on disk.
+    fake.appendTranscriptLineOffline(
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          id: "msg_1",
+          model: "claude-haiku-4-5",
+          usage: { input_tokens: 10, output_tokens: 40 },
+        },
+      }),
+    );
+
+    await runtime.endRun(handle);
+    const reconciled = await drainRemaining(iterator);
+
+    const allUsage = [...live, ...turnRest, ...reconciled].filter((e) => e.kind === "usage");
+    expect(allUsage).toHaveLength(2);
+    expect(allUsage).toContainEqual({
+      kind: "usage",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+    expect(allUsage).toContainEqual({
+      kind: "usage",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 40,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+  });
+
+  it("still kills the agent process and the transcript tail and closes the stream when the teardown transcript read fails, and surfaces the failure", async () => {
+    const fake = createFakeComputer(() =>
+      createFakeAgentProcess({
+        prompt: async (params, connection) => {
+          await connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } },
+          });
+          return { stopReason: "end_turn" };
+        },
+      }),
+    );
+    const runtime = new AcpRuntime();
+    const handle = await runtime.startRun({ computer: fake.computer, prompt: "hi" });
+    const iterator = runtime.events(handle)[Symbol.asyncIterator]();
+    await collectTurn(iterator);
+
+    // Only the teardown read fails — the run's own start-of-run read already succeeded.
+    fake.failTranscriptReadWith("runtime");
+
+    let caught: unknown;
+    try {
+      await runtime.endRun(handle);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ComputerError);
+    if (!(caught instanceof ComputerError)) throw new Error("expected a ComputerError");
+    expect(caught.kind).toBe("runtime");
+
+    for (const tracked of [...fake.agentProcesses, ...fake.transcriptProcesses]) {
+      expect(tracked.killCalls.length).toBeGreaterThan(0);
+    }
+
+    // A consumer must never be left iterating a stream that never ends, even on this path.
+    const tail = await drainRemaining(iterator);
+    expect(tail.filter((e) => e.kind === "usage")).toHaveLength(0);
+  });
+
+  it("endRun completes when the transcript was never written at all", async () => {
+    const fake = createFakeComputer(() =>
+      createFakeAgentProcess({
+        prompt: async (params, connection) => {
+          await connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } },
+          });
+          return { stopReason: "end_turn" };
+        },
+      }),
+    );
+
+    const runtime = new AcpRuntime();
+    const handle = await runtime.startRun({ computer: fake.computer, prompt: "hi" });
+    const iterator = runtime.events(handle)[Symbol.asyncIterator]();
+    await collectTurn(iterator);
+
+    await expect(runtime.endRun(handle)).resolves.toBeUndefined();
+
+    const tail = await drainRemaining(iterator);
+    expect(tail.filter((e) => e.kind === "usage")).toHaveLength(0);
   });
 });
