@@ -1,0 +1,17 @@
+# drobek bot
+
+> Open-source, self-hosted AI teammates: named bots, each with its own isolated container (files, shell, browser access), skills and routines. Every action that leaves the box asks the human first (Allow once / Always allow / Deny) through a fail-closed approval broker; secrets never enter the transcript; every run has a hard cost cap; everything a bot did and who approved it is audited. It runs with `docker compose` on your own machine or server, on your own API key or on your own Claude subscription signed in inside the box. The Claude Code CLI inside the box is unmodified and driven over ACP. Pre-alpha: the compose stack, the data model and the bot box are in place and measured; bots, the approval broker, the scheduler and the chat are being built. AGPL-3.0.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/freema/drobek-bot/main/README.md): what it is, how to start it, how it works, security model, comparison with similar products, roadmap, FAQ
+- [Bot box](https://raw.githubusercontent.com/freema/drobek-bot/main/box/README.md): the box image, the two ways to authenticate, and the measured findings of the ACP spike (events, permission gate, host Chrome over CDP, session resume, cost cap, numbers)
+- [Setup prompt](https://raw.githubusercontent.com/freema/drobek-bot/main/SETUP_PROMPT.md): a prompt to paste into an AI agent that installs drobek bot on a computer and reports the health check
+- [AGENTS.md](https://raw.githubusercontent.com/freema/drobek-bot/main/AGENTS.md): the contract for agents and contributors working on the repository (what is being built, keep it thin, language, roles, tests, security rules)
+- [docs/](https://github.com/freema/drobek-bot/tree/main/docs): working notes; `progress.md` holds the current state of the work
+
+## Optional
+
+- [License](https://raw.githubusercontent.com/freema/drobek-bot/main/LICENSE): AGPL-3.0
+- [docker-compose.yml](https://raw.githubusercontent.com/freema/drobek-bot/main/docker-compose.yml): the local stack (Postgres, Redis, api, worker, web)
+- [.env.example](https://raw.githubusercontent.com/freema/drobek-bot/main/.env.example): every configuration key with its default
