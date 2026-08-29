@@ -25,3 +25,6 @@ bots/*/memory/
 
 # implementation-loop skill copy + local loop config (installed per machine, not part of the product)
 .claude/skills/implement-spec/
+
+# spike run output (events, screenshots, logs)
+box/spike/out/

@@ -1,0 +1,28 @@
+{
+  "name": "@drobek-bot/box-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike: drive the unmodified claude CLI in the thin box over ACP from the host",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "probe:acp": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/acp.ts",
+    "probe:permissions": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/permissions.ts",
+    "probe:browser": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/browser.ts",
+    "probe:resume": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/resume.ts",
+    "probe:cap": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/cap.ts",
+    "measure": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/measure.ts",
+    "probe:sdk-hooks": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/probes/sdk-hooks.ts"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "1.4.0",
+    "zod": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
