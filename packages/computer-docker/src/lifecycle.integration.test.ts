@@ -16,8 +16,12 @@ import { createDockerComputerProvider } from "./provider.js";
  */
 
 const IMAGE = "alpine:3.21";
-const BOT_ID = "smoke-lifecycle";
-const FOREIGN_BOT_ID = "smoke-foreign";
+// Unique per run so a leftover from an earlier (e.g. interrupted) run can
+// never make a test pass or fail spuriously.
+const RUN_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+const BOT_ID = `smoke-lifecycle-${RUN_ID}`;
+const FOREIGN_BOT_ID = `smoke-foreign-${RUN_ID}`;
+const ABSENT_BOT_ID = `smoke-absent-${RUN_ID}`;
 
 const docker = new Docker();
 const provider = createDockerComputerProvider({ client: createDockerodeClient() });
@@ -58,11 +62,13 @@ describe("docker computer provider", () => {
     await pull(IMAGE);
     await removeQuietly(BOT_ID);
     await removeQuietly(FOREIGN_BOT_ID);
+    await removeQuietly(ABSENT_BOT_ID);
   });
 
   afterAll(async () => {
     await removeQuietly(BOT_ID);
     await removeQuietly(FOREIGN_BOT_ID);
+    await removeQuietly(ABSENT_BOT_ID);
   });
 
   it("provisions, keeps files across a stop, and leaves nothing after destroy", async () => {
@@ -116,7 +122,7 @@ describe("docker computer provider", () => {
     expect(still.State.Running).toBe(true);
   });
 
-  it("refuses an environment name that must never reach a box", async () => {
+  it("refuses an environment name that must never reach a box, and creates nothing", async () => {
     await expect(
       provider.provision({
         botId: BOT_ID,
@@ -124,5 +130,16 @@ describe("docker computer provider", () => {
         env: { DROBEK_MASTER_KEY: "never" },
       }),
     ).rejects.toMatchObject({ kind: "denied-env" });
+
+    // BOT_ID was destroyed by the first test; the refused provision must not
+    // have recreated its container or its volume.
+    await expect(docker.getContainer(containerName(BOT_ID)).inspect()).rejects.toThrow();
+    await expect(docker.getVolume(volumeName(BOT_ID)).inspect()).rejects.toThrow();
+  });
+
+  it("stop and destroy are no-ops for a bot that was never provisioned", async () => {
+    await expect(provider.stop(ABSENT_BOT_ID)).resolves.toBeUndefined();
+    await expect(provider.destroy(ABSENT_BOT_ID)).resolves.toBeUndefined();
+    expect(await provider.reconnect(ABSENT_BOT_ID)).toBeUndefined();
   });
 });
