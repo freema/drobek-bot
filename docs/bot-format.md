@@ -70,7 +70,7 @@ Strict: an unknown key is an error, so a typo cannot silently disable a section.
 | `requires` | list of strings                              | `[]`       | Tools the bot expects in the box (`python3`, `jq`). Nothing is installed for it; the app reports what is missing.                        |
 | `mcp`      | map of name to entry                         | `{}`       | MCP servers, see below. The name becomes the tool prefix `mcp__<name>__<tool>`.                                                          |
 | `routines` | list                                         | `[]`       | Scheduled prompts, see below.                                                                                                            |
-| `budget`   | `{ per_run_usd?, per_day_usd? }`             | unset      | Spending caps in USD; the host stops a run that crosses one.                                                                             |
+| `budget`   | `{ per_run_usd?, per_day_usd? }`             | unset      | Spending caps as non-negative numbers in USD; the host stops a run that crosses one, and zero blocks every run.                          |
 | `policy`   | `{ approvals: { require?, allow?, deny? } }` | unset      | Which tools ask, run, or never run, see below.                                                                                           |
 | `channels` | object                                       | unset      | Reserved for channels (chat integrations); any object is accepted for now.                                                               |
 
@@ -113,6 +113,8 @@ budget:
   per_run_usd: 0.25
   per_day_usd: 1
 ```
+
+Both values are non-negative numbers in USD. The host stops a run the moment it crosses the per-run cap and starts none once the day's cap is reached; zero is a legitimate cap that blocks every run.
 
 ### policy
 

@@ -109,8 +109,8 @@ export const routineSchema = z.strictObject({
 export type Routine = z.infer<typeof routineSchema>;
 
 export const budgetSchema = z.strictObject({
-  per_run_usd: z.number().positive().optional(),
-  per_day_usd: z.number().positive().optional(),
+  per_run_usd: z.number().nonnegative().optional(),
+  per_day_usd: z.number().nonnegative().optional(),
 });
 export type Budget = z.infer<typeof budgetSchema>;
 
