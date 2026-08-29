@@ -27,7 +27,7 @@ English everywhere: code, comments, commit messages, branch names, PR titles and
 
 ## No tracker references
 
-Do not reference issue trackers or their IDs anywhere in this repository — not in code, comments, commits, branch names, PRs or docs. Describe the change and the reason in plain words. Planning lives outside the repo.
+Do not reference this project's planning tracker, its issues, IDs or links anywhere in this repository — not in code, comments, commits, branch names, PRs or docs. Describe the change and the reason in plain words. Planning lives outside the repo; the one place the planning tracker is named is the loop's config block in `CLAUDE.md`. Integrations with issue trackers as product features (the MCP catalog, skills, adapters) are unaffected by this rule.
 
 ## Roles and models
 
@@ -37,7 +37,7 @@ Do not reference issue trackers or their IDs anywhere in this repository — not
 
 ## Commits and PRs
 
-Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`), small diffs — "smallest possible diff, then make it smaller" — DCO sign-off. A PR states what changed, why, and how it was verified with an observable assertion, not "should work". Branch names describe the change (`feat/approval-broker`).
+Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`), small diffs — "smallest possible diff, then make it smaller" — DCO sign-off. Commits carry only the DCO sign-off: no AI attribution trailers, no "generated with" footers, no session links, in commits or PR bodies. A PR states what changed, why, and how it was verified with an observable assertion, not "should work". Branch names describe the change (`feat/approval-broker`).
 
 ## TypeScript
 

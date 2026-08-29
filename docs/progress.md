@@ -19,5 +19,4 @@ Keep it short: working state, not a changelog — git history is the changelog.
 
 ## Open questions for the owner
 
-- `catalog/mcp.json` names Linear and Atlassian as integration vendors (the spec asked for them). AGENTS.md says the loop's config block is the one place a tracker is named in the repo; either reword that sentence to cover product integrations or drop the two entries.
 - Slack's remote MCP server (`https://mcp.slack.com/mcp`) is left out: it needs a pre-registered Slack app with client id and secret and does not do dynamic client registration, so the plain `claude mcp add` path does not work. Add it once the app has a way to carry app credentials.
