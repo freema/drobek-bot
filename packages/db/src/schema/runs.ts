@@ -89,7 +89,11 @@ export const attempts = pgTable(
   (table) => [unique("attempts_run_id_number_unique").on(table.runId, table.number)],
 );
 
-/** Append-only: a trigger (custom migration) rejects UPDATE and DELETE. */
+/**
+ * Rows are immutable but deletable: triggers (custom migration) reject UPDATE
+ * and TRUNCATE, while DELETE stays open so the FK cascades can remove a run,
+ * thread or bot together with its events.
+ */
 export const events = pgTable(
   "events",
   {

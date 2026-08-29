@@ -23,7 +23,7 @@ export const users = pgTable(
   (table) => [index("users_workspace_id_idx").on(table.workspaceId)],
 );
 
-/** Append-only: a trigger (custom migration) rejects UPDATE and DELETE. */
+/** Append-only: triggers (custom migration) reject UPDATE, DELETE and TRUNCATE. */
 export const auditEvents = pgTable(
   "audit_events",
   {
