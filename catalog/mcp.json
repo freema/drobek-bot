@@ -1,0 +1,56 @@
+[
+  {
+    "id": "github",
+    "name": "GitHub",
+    "transport": "http",
+    "url": "https://api.githubcopilot.com/mcp/",
+    "auth": "oauth",
+    "docs": "https://github.com/github/github-mcp-server",
+    "notes": "Signs in through the browser on first use; a personal access token in an Authorization header works instead."
+  },
+  {
+    "id": "atlassian",
+    "name": "Atlassian (Jira, Confluence)",
+    "transport": "http",
+    "url": "https://mcp.atlassian.com/v1/mcp/authv2",
+    "auth": "oauth",
+    "docs": "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/",
+    "notes": "OAuth 2.1 with the person's own Atlassian permissions; an API token is optional."
+  },
+  {
+    "id": "linear",
+    "name": "Linear",
+    "transport": "http",
+    "url": "https://mcp.linear.app/mcp",
+    "auth": "oauth",
+    "docs": "https://linear.app/docs/mcp",
+    "notes": "A read-only variant answers at https://mcp.linear.app/mcp/readonly."
+  },
+  {
+    "id": "sentry",
+    "name": "Sentry",
+    "transport": "http",
+    "url": "https://mcp.sentry.dev/mcp",
+    "auth": "oauth",
+    "docs": "https://mcp.sentry.dev/",
+    "notes": "Append /<organization>/<project> to the URL to scope the server to one project."
+  },
+  {
+    "id": "notion",
+    "name": "Notion",
+    "transport": "http",
+    "url": "https://mcp.notion.com/mcp",
+    "auth": "oauth",
+    "docs": "https://developers.notion.com/guides/mcp/get-started-with-mcp"
+  },
+  {
+    "id": "playwright",
+    "name": "Playwright browser",
+    "transport": "stdio",
+    "command": "npx",
+    "args": ["-y", "@playwright/mcp@0.0.79"],
+    "auth": "none",
+    "docs": "https://github.com/microsoft/playwright-mcp",
+    "notes": "The box has no browser of its own: add --cdp-endpoint http://<host-ip>:9222 to drive the host Chrome. npx downloads the server into the bot's home volume on first use."
+  }
+]
