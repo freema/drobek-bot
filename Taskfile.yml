@@ -1,0 +1,28 @@
+version: "3"
+
+tasks:
+  verify:
+    desc: Gate — typecheck, lint and tests; the exit code is the verdict
+    cmds:
+      - pnpm install --frozen-lockfile --prefer-offline
+      - pnpm verify
+
+  dev:
+    desc: Start the local stack
+    cmds:
+      - docker compose up -d --build
+
+  stop:
+    desc: Stop the local stack (keeps data)
+    cmds:
+      - docker compose down
+
+  reset:
+    desc: Stop the local stack and wipe its data
+    cmds:
+      - docker compose down -v
+
+  logs:
+    desc: Tail the stack
+    cmds:
+      - docker compose logs -f --tail=100

@@ -1,0 +1,17 @@
+{
+  "name": "drobek-bot",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Open-source, self-hosted AI teammates. Your own Grok Bot, on your own machine.",
+  "license": "AGPL-3.0-only",
+  "engines": { "node": ">=22", "pnpm": ">=10" },
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "test:integration": "pnpm -r --if-present test:integration",
+    "test:e2e": "pnpm -r --if-present test:e2e",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+  }
+}

@@ -22,3 +22,6 @@ bots/*/memory/
 .DS_Store
 .idea/
 .vscode/
+
+# implementation-loop skill copy + local loop config (installed per machine, not part of the product)
+.claude/skills/implement-spec/

@@ -71,3 +71,13 @@ apps/web · apps/api · apps/worker
 packages/contracts · core · db · runtime-acp · computer-docker · bot-format · guide · ui · sdk · testkit · channels
 box/ (bot computer image) · bots/ (example bots; user bots are bind-mounted) · docs/ · tests/e2e
 ```
+
+## Implementation loop specifics
+
+Work on this repository is driven by the `implement-spec` loop (config block in `CLAUDE.md`, state in `docs/progress.md`). These project rules take precedence over the loop's defaults:
+
+- **Branch names describe the change and carry no tracker ID** — `feat/approval-broker`, `fix/sse-replay` — even when the tracker suggests a branch name. Commit messages, PR titles and bodies and `docs/progress.md` refer to work by what it does, never by an ID. The one place a tracker is named in this repo is the loop's config block in `CLAUDE.md`.
+- **Tests are written by a Sonnet agent, not by the implementer.** The implementer writes production code (and only the smallest smoke needed to run it). Before verification the orchestrator spawns a Sonnet agent that receives the acceptance criteria and the public interfaces — never the diff — and writes the unit/integration tests for the issue; they are committed on the same branch and are part of the gate. The blind e2e pass is a further, separate Sonnet agent. Test integrity is absolute: a red test is a finding, never something to weaken.
+- **Bots under test run on Haiku** through the test API key in `~/.config/drobek-bot/.env.test`, with a hard cost cap per run. Never a production key, never a subscription login in CI.
+- **Thin by default** (see "Keep it thin"). An issue that seems to need a new layer is a design question for the owner, not an extra commit.
+- `docs/progress.md` holds only working state: what is in flight (by title), failed approaches, open questions for the owner. Prune it as things land.
