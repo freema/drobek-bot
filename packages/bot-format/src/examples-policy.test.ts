@@ -592,32 +592,38 @@ function cardLine(card: string, label: string): string | undefined {
  * expand to every real tool with that prefix on a server's recorded
  * `MCP_TOOL_SURFACE` (a server with none, `playwright`, is trusted as
  * named — this ratchet checks deny *coverage*, not tool existence; the
- * prose ratchet above already owns existence). `core` names a Claude Code
- * tool used as-is, independent of any server.
+ * prose ratchet above already owns existence). Deliberately has no way to
+ * name a core tool such as `Bash`: see the comment on `VERB_RULES` for why.
  */
 interface VerbRule {
   readonly exact?: readonly string[];
   readonly prefixes?: readonly string[];
-  readonly core?: readonly string[];
 }
 
 /**
- * Every verb the gallery's five README "Never" lines actually use, and
- * what would perform it. `pushes` also names `Bash`: a bot whose policy
- * denies `mcp__github__push_*` but merely asks about `Bash` can still be
- * asked to `git push` from the shell, so the tool alone denied is not the
- * verb denied — the same reason `pr-triage`'s card can promise "no shell"
- * only because its policy denies `Bash` outright, not just the GitHub push
- * tool. This is the same bug class as the phantom-tool ratchets above, one
- * level up: GitHub's MCP tools consolidate verbs behind a `method`
- * argument (`label_write` does create/update/delete; `issue_write` carries
- * a `state`), so a `deny: create_*` prefix rule does not on its own stop
+ * Every verb the gallery's five README "Never" lines actually use, and the
+ * MCP tools that would perform it. Deliberately MCP-tools-only — no verb
+ * here names `Bash`, on purpose: a `git push`, a `gh pr merge` and an `rm`
+ * all run the same way, through the shell, so pairing `Bash` with one verb
+ * and not the others would be arbitrary, and pairing it with every verb
+ * would make "Never" say nothing for any bot that has a shell at all. This
+ * table's job is narrower and honest about it: "with its own MCP tools,
+ * this bot will not merge / push / delete / …". The shell gets its own
+ * check below ("a card whose Bash is not denied says so under Asks"),
+ * which forces a bot that can be asked to run any command to say so on the
+ * card — do not fold `Bash` back into this table to "fix" that; it would
+ * just make the two checks overlap and the promise vaguer, not stronger.
+ *
+ * This is the same bug class as the phantom-tool ratchets above, one level
+ * up: GitHub's MCP tools consolidate verbs behind a `method` argument
+ * (`label_write` does create/update/delete; `issue_write` carries a
+ * `state`), so a `deny: create_*` prefix rule does not on its own stop
  * every way to create something, and English prose cannot be trusted to
  * track that by itself.
  */
 const VERB_RULES: Record<string, VerbRule> = {
   merges: { exact: ["merge_pull_request"] },
-  pushes: { exact: ["push_files"], core: ["Bash"] },
+  pushes: { exact: ["push_files"] },
   deletes: { prefixes: ["delete_"] },
   reviews: { exact: ["pull_request_review_write"] },
   "opens a pull request": { exact: ["create_pull_request"] },
@@ -630,9 +636,9 @@ const VERB_RULES: Record<string, VerbRule> = {
   "calls the raw Sentry API": { exact: ["execute_sentry_tool"] },
 };
 
-/** `mcp__<server>__<tool>` for every tool `rule` names, resolved against the servers `serverNames` declares, plus any `core` tool name as-is. */
+/** `mcp__<server>__<tool>` for every tool `rule` names, resolved against the servers `serverNames` declares. */
 function verbTools(rule: VerbRule, serverNames: readonly string[]): string[] {
-  const tools = [...(rule.core ?? [])];
+  const tools: string[] = [];
   for (const serverName of serverNames) {
     const surface = MCP_TOOL_SURFACE[serverName];
     for (const name of rule.exact ?? []) {
