@@ -9,12 +9,12 @@ _Named bots with their own isolated computer, skills and routines. Every action 
 
 **Status: pre-alpha.** In place and measured: the `docker compose` stack with a health endpoint ([docker-compose.yml](./docker-compose.yml)), the data model with additive-only migrations and an append-only audit table ([packages/db](./packages/db)), and the thin bot box that drives the unmodified `claude` CLI over ACP — events, permission requests, session resume, your host Chrome over CDP and a hard cost cap, each with a measurement next to it ([box/README.md](./box/README.md)). Being built: bots as folders, the approval broker, the scheduler and the chat. Nothing on this page marked _planned_ or _coming_ exists yet.
 
-- `box` **1 bot = 1 isolated container** — files, shell and browser access per bot, nothing shared between bots.
-- `shield-check` **Enforced approvals, not prompts** — Allow once / Always allow / Deny on every action that leaves the box, decided by a fail-closed broker.
-- `eye-off` **Secrets never enter the transcript** — credentials are injected per run and redacted from every event; the model never sees them.
-- `gauge` **Hard cost cap** — per bot and per run; when it is hit the run stops and the box is killed.
-- `scroll-text` **Full audit** — what every bot did, when, and who approved it, in an append-only log.
-- `plug` **Bring your own model** — API key first (Anthropic today; OpenAI-compatible and OpenRouter through the planned runtimes), or your own Claude subscription signed in inside the box.
+- **1 bot = 1 isolated container** — files, shell and browser access per bot, nothing shared between bots.
+- **Enforced approvals, not prompts** — Allow once / Always allow / Deny on every action that leaves the box, decided by a fail-closed broker.
+- **Secrets never enter the transcript** — credentials are injected per run and redacted from every event; the model never sees them.
+- **Hard cost cap** — per bot and per run; when it is hit the run stops and the box is killed.
+- **Full audit** — what every bot did, when, and who approved it, in an append-only log.
+- **Bring your own model** — API key first (Anthropic today; OpenAI-compatible and OpenRouter through the planned runtimes), or your own Claude subscription signed in inside the box.
 
 Of these, the box, its permission gate, the cap per run and both model paths are proven in the spike ([findings](./box/README.md#findings)); the rest is being built in the order the [roadmap](#roadmap) gives.
 
