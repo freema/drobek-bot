@@ -37,6 +37,7 @@ describe("parseManifest: defaults", () => {
       model: "claude-haiku-4-5",
       browser: "host-cdp",
       requires: [],
+      secrets: [],
       mcp: {},
       routines: [],
     });
