@@ -53,6 +53,8 @@ services:
     environment:
       <<: *app-env
       PORT: "3000"
+      # The secret store's master key: api and worker only, never web, never a box.
+      DROBEK_MASTER_KEY: ${DROBEK_MASTER_KEY:-}
     healthcheck:
       # Fails on 503, so "healthy" means every check in /api/health is ok.
       test: ["CMD-SHELL", "wget -q -T 5 -O - http://127.0.0.1:3000/api/health || exit 1"]
@@ -73,6 +75,7 @@ services:
     command: ["node", "apps/worker/dist/main.js"]
     environment:
       <<: *app-env
+      DROBEK_MASTER_KEY: ${DROBEK_MASTER_KEY:-}
     volumes:
       # Part of the intended topology, unused by the walking skeleton: the
       # worker will start bot containers and mount user bots from ./bots.

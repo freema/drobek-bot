@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { isValidCron } from "./cron.js";
 import { authModeSchema } from "./enums.js";
+import { secretNameSchema } from "./secrets.js";
 import { isToolNamePattern } from "./tool-pattern.js";
 
 /**
@@ -143,6 +144,23 @@ export const botManifestSchema = z.strictObject({
   auth: authModeSchema.optional(),
   browser: browserModeSchema.default("host-cdp"),
   requires: z.array(z.string().min(1)).default([]),
+  /** Names of the secrets the bot receives from the store; values never appear here. */
+  secrets: z
+    .array(secretNameSchema)
+    .superRefine((names, ctx) => {
+      const seen = new Set<string>();
+      names.forEach((name, index) => {
+        if (seen.has(name)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `duplicate secret name "${name}"`,
+            path: [index],
+          });
+        }
+        seen.add(name);
+      });
+    })
+    .default([]),
   mcp: z.record(mcpServerNameSchema, botMcpEntrySchema).default({}),
   routines: z
     .array(routineSchema)

@@ -46,6 +46,18 @@ describe("readEnv", () => {
   it("throws when REDIS_URL is empty", () => {
     expect(() => readEnv({ ...required, REDIS_URL: "" })).toThrow();
   });
+
+  it("rejects a malformed DROBEK_MASTER_KEY without echoing it", () => {
+    const malformed = "definitely-not-thirty-two-bytes";
+    let message = "";
+    try {
+      readEnv({ ...required, DROBEK_MASTER_KEY: malformed });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain("DROBEK_MASTER_KEY");
+    expect(message).not.toContain(malformed);
+  });
 });
 
 describe("envSchema", () => {

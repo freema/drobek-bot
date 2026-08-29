@@ -4,6 +4,8 @@ model: claude-haiku-4-5
 auth: api_key
 browser: host-cdp
 requires: []
+# Names of secrets from the app's store the bot gets as environment variables; values never live here.
+secrets: []
 
 mcp:
   github:

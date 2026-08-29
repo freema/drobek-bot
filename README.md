@@ -111,7 +111,7 @@ Plain and boundary-first. Where a point is not built yet it says so.
 
 - **The app is trusted, the boxes are not.** The api and the worker are the trusted part. The worker mounts `/var/run/docker.sock` and starts boxes directly, the way Coolify or Portainer do. That makes the boundary app versus boxes, never app versus host: whoever controls the worker controls the host, so the app belongs to the host's trust domain and a box never does.
 - **One container and one home volume per bot.** Nothing is shared between bots. The image and the box are proven ([box/README.md](./box/README.md)); the per-bot orchestration is planned.
-- **Secrets are injected per run and redacted.** A secret enters the box as an environment variable for that run only, is redacted from every event and log line, and is never stored in the bot's transcript. The redaction exists in the spike (`redactionsHit` in every run summary); the secret store and the injection are planned.
+- **Secrets are injected per run and redacted.** A secret enters the box as an environment variable for that run only, is redacted from every event and log line, and is never stored in the bot's transcript. The redaction exists in the spike (`redactionsHit` in every run summary) and the store's encryption, redactor and box allowlist are in place ([docs/secrets.md](./docs/secrets.md)); the injection into a box is planned.
 - **The approval broker is fail-closed.** Unavailable means deny. A finding from the spike: the gate for _every_ tool call is a `PreToolUse` hook inside the box, because ACP permission requests alone skip read-only actions (read-only shell commands and reads inside the working directory never reach them). The hook is proven; the broker is planned.
 - **Nothing is auto-installed in a box.** The image holds Node, the unmodified `claude`, git, `gh`, `glab` and curl. Need Python or a browser in a bot? Open its terminal and install it; it stays in the bot's volume. The volume persistence is proven; the terminal in the UI is planned.
 - **The browser is your own Chrome over CDP.** On a local install the bot drives the host's Chrome through the Playwright MCP server; there is no bundled Chromium. Proven.
@@ -164,12 +164,13 @@ The same compose file runs on a server. Put the web port behind your own TLS pro
 
 Everything is in [`.env.example`](./.env.example); `cp .env.example .env` gives working defaults.
 
-| Key                                                 | What it does                                                                                         |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `WEB_PUBLISH`, `POSTGRES_PUBLISH`, `REDIS_PUBLISH`  | Host ports the stack publishes (3050, 5450, 6390). Change them if they collide with something local. |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Postgres credentials; compose builds `DATABASE_URL` for the services from them.                      |
-| `GIT_SHA`                                           | The commit reported by `/api/health`; `task dev` sets the real one.                                  |
-| `DATABASE_URL`                                      | Host-side only, for `pnpm db:migrate` against the running stack; the services never read it.         |
+| Key                                                 | What it does                                                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `WEB_PUBLISH`, `POSTGRES_PUBLISH`, `REDIS_PUBLISH`  | Host ports the stack publishes (3050, 5450, 6390). Change them if they collide with something local.   |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Postgres credentials; compose builds `DATABASE_URL` for the services from them.                        |
+| `GIT_SHA`                                           | The commit reported by `/api/health`; `task dev` sets the real one.                                    |
+| `DROBEK_MASTER_KEY`                                 | The secret store's master key (`openssl rand -base64 32`); api and worker only. See `docs/secrets.md`. |
+| `DATABASE_URL`                                      | Host-side only, for `pnpm db:migrate` against the running stack; the services never read it.           |
 
 </details>
 

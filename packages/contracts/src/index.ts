@@ -104,4 +104,21 @@ export {
   type Slug,
 } from "./bot-format.js";
 export { isValidCron } from "./cron.js";
+export {
+  AUTH_TAG_BYTES,
+  DATA_KEY_BYTES,
+  ENCRYPTED_DATA_KEY_BYTES,
+  MASTER_KEY_BYTES,
+  MASTER_KEY_ID_PATTERN,
+  NONCE_BYTES,
+  SECRET_NAME_PATTERN,
+  masterKeySchema,
+  secretEnvelopeSchema,
+  secretNameSchema,
+  secretScopeSchema,
+  type MasterKey,
+  type SecretEnvelope,
+  type SecretName,
+  type SecretScope,
+} from "./secrets.js";
 export { TOOL_NAME_PATTERN, isToolNamePattern, matchesToolPattern } from "./tool-pattern.js";
