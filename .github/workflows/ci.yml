@@ -1,4 +1,5 @@
 # check: the same gate as `task check` (typecheck, lint, tests).
+# integration: the Testcontainers suites against a real Postgres (Docker is on the runner).
 # build: both images on every run; pushed to GHCR only from main.
 name: CI
 
@@ -27,6 +28,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm verify
+
+  integration:
+    name: Integration
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test:integration
 
   build:
     name: Build ${{ matrix.image }}

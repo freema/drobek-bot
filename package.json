@@ -16,7 +16,9 @@
     "test": "pnpm -r --if-present test",
     "test:integration": "pnpm -r --if-present test:integration",
     "test:e2e": "pnpm -r --if-present test:e2e",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "db:generate": "pnpm --filter @drobek-bot/db generate",
+    "db:migrate": "pnpm --filter @drobek-bot/db... build && pnpm --filter @drobek-bot/db migrate"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

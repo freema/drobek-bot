@@ -4,3 +4,4 @@ coverage
 pnpm-lock.yaml
 LICENSE
 CLAUDE.md
+packages/db/drizzle/meta
