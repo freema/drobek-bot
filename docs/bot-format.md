@@ -68,11 +68,22 @@ Strict: an unknown key is an error, so a typo cannot silently disable a section.
 | `auth`     | `subscription` or `api_key`                  | unset      | How the box authenticates. With `api_key` the key is injected per run; with `subscription` the person signs in inside the box once.      |
 | `browser`  | `host-cdp`, `none` or `box`                  | `host-cdp` | `host-cdp` drives the host's own Chrome over CDP; `none` gives the bot no browser; `box` is reserved for a browser installed in the box. |
 | `requires` | list of strings                              | `[]`       | Tools the bot expects in the box (`python3`, `jq`). Nothing is installed for it; the app reports what is missing.                        |
+| `secrets`  | list of names                                | `[]`       | Secrets from the app's store the bot receives as environment variables, by name only, see below.                                         |
 | `mcp`      | map of name to entry                         | `{}`       | MCP servers, see below. The name becomes the tool prefix `mcp__<name>__<tool>`.                                                          |
 | `routines` | list                                         | `[]`       | Scheduled prompts, see below.                                                                                                            |
 | `budget`   | `{ per_run_usd?, per_day_usd? }`             | unset      | Spending caps as non-negative numbers in USD; the host stops a run that crosses one, and zero blocks every run.                          |
 | `policy`   | `{ approvals: { require?, allow?, deny? } }` | unset      | Which tools ask, run, or never run, see below.                                                                                           |
 | `channels` | object                                       | unset      | Reserved for channels (chat integrations); any object is accepted for now.                                                               |
+
+### secrets
+
+```yaml
+secrets:
+  - GITHUB_TOKEN
+  - ARCHIVE_TOKEN
+```
+
+The names of the secrets the bot receives, each an environment variable name (`^[A-Z][A-Z0-9_]{0,63}$`), unique within the list. The values are never in the folder: they live in the app's secret store, encrypted, and reach the box as environment variables for one run. A name that is declared but not configured in the store is reported before the run starts. Refer to a secret elsewhere in the manifest as `${NAME}`, typically in `mcp.<server>.env`. Internal names (`DATABASE_URL`, `DROBEK_MASTER_KEY`, `POSTGRES_*`, `CLAUDE_*` and a few more) never reach a box even when listed; `ANTHROPIC_API_KEY` only reaches a bot with `auth: api_key`. See [docs/secrets.md](./secrets.md).
 
 ### mcp
 
@@ -169,6 +180,7 @@ The loader maps the folder onto a Claude Code project in the bot's working direc
 | `bot.yaml` `model`       | `.claude/settings.json`          | `{ "model": "<model>" }`. This is the one place a model pin takes effect for the CLI behind the ACP adapter.      |
 | `bot.yaml` `mcp`         | `.mcp.json`                      | `{ "mcpServers": { ... } }` in Claude Code's shape, catalog references expanded; omitted when there is no server. |
 | `skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` | Verbatim.                                                                                                         |
+| `bot.yaml` `secrets`     | (environment of the run)         | Values from the store as environment variables for that run; never a file.                                        |
 | `memory/`                | (not copied)                     | The bot's home volume keeps its own state.                                                                        |
 
 The shapes written are the ones Claude Code documents for [`.mcp.json`](https://code.claude.com/docs/en/mcp), [settings](https://code.claude.com/docs/en/settings) and [skills](https://code.claude.com/docs/en/skills), and the skill frontmatter follows the [Agent Skills specification](https://agentskills.io/specification):
@@ -202,7 +214,7 @@ The loader rejects the folder when any file it reads contains something shaped l
 - `xoxb-` and `xoxp-` tokens
 - `-----BEGIN ... PRIVATE KEY-----`
 
-The report names the file, the line and the kind, never the value. Secrets belong in the app's secret store and reach the box as environment variables for one run; in bot files, refer to them as `${NAME}`.
+The report names the file, the line and the kind, never the value. Secrets belong in the app's secret store and reach the box as environment variables for one run; in bot files, declare them under `secrets` and refer to them as `${NAME}`. How the store keeps them is in [docs/secrets.md](./secrets.md).
 
 ## The MCP catalog
 
