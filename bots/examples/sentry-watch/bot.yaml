@@ -1,0 +1,47 @@
+# Watches Sentry every hour and drafts an incident note. Assigning and resolving ask; deleting is denied.
+version: 1
+model: claude-sonnet-5
+auth: api_key
+browser: none
+requires: []
+secrets: []
+
+mcp:
+  sentry:
+    catalog: sentry
+
+routines:
+  - name: hourly-watch
+    cron: "5 * * * *"
+    timezone: Europe/Prague
+    prompt: Check Sentry for new and regressed issues following the watch skill; draft an incident note only when there is something, then update memory/progress.md.
+
+budget:
+  per_run_usd: 0.2
+  per_day_usd: 3
+
+# Precedence: deny, then require, then allow. Unlisted tools ask.
+policy:
+  approvals:
+    deny:
+      - mcp__sentry__delete_*
+      # The raw API call: the one way to delete anything.
+      - mcp__sentry__execute_sentry_tool
+    require:
+      - Bash
+      - Write
+      - Edit
+      - WebFetch
+      # Assigning and resolving (update_issue), setting things up (create_*), running Seer (analyze_*).
+      - mcp__sentry__update_*
+      - mcp__sentry__create_*
+      - mcp__sentry__analyze_*
+    allow:
+      - Read
+      - Glob
+      - Grep
+      - ToolSearch
+      - mcp__sentry__find_*
+      - mcp__sentry__get_*
+      - mcp__sentry__search_*
+      - mcp__sentry__whoami

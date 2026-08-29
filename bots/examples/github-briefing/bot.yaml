@@ -1,0 +1,59 @@
+# Summarises open issues, review requests and failing pull requests every weekday morning. Drafts comments, never posts on its own.
+version: 1
+model: claude-sonnet-5
+auth: api_key
+browser: none
+# gh is the fallback when the github server is not signed in; the box image already has it.
+requires:
+  - gh
+# GH_TOKEN is what gh reads. The value lives in the app's secret store and reaches the box for one run.
+secrets:
+  - GH_TOKEN
+
+mcp:
+  github:
+    catalog: github
+
+routines:
+  - name: weekday-briefing
+    cron: "0 8 * * 1-5"
+    timezone: Europe/Prague
+    prompt: Write this morning's GitHub briefing following the repo-briefing skill, then update memory/progress.md.
+
+budget:
+  per_run_usd: 0.5
+  per_day_usd: 1
+
+# Precedence: deny, then require, then allow. Unlisted tools ask.
+policy:
+  approvals:
+    deny:
+      - mcp__github__merge_*
+      - mcp__github__delete_*
+      - mcp__github__push_*
+      # Notifications are the person's own inbox.
+      - mcp__github__dismiss_*
+      - mcp__github__mark_*
+    require:
+      # Every shell command, including the gh fallback.
+      - Bash
+      - Write
+      - Edit
+      - WebFetch
+      # Anything that posts or changes something on GitHub.
+      - mcp__github__add_*
+      - mcp__github__create_*
+      - mcp__github__update_*
+      - mcp__github__issue_write
+      - mcp__github__pull_request_review_write
+      - mcp__github__submit_*
+    allow:
+      - Read
+      - Glob
+      - Grep
+      - ToolSearch
+      - mcp__github__get_*
+      - mcp__github__list_*
+      - mcp__github__search_*
+      - mcp__github__issue_read
+      - mcp__github__pull_request_read

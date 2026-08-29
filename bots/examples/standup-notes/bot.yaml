@@ -1,0 +1,51 @@
+# Turns yesterday's GitHub activity into a three-line standup draft. Reads only; posting anywhere asks.
+version: 1
+model: claude-sonnet-5
+auth: api_key
+browser: none
+requires: []
+secrets: []
+
+mcp:
+  github:
+    catalog: github
+
+routines:
+  - name: weekday-standup
+    cron: "45 8 * * 1-5"
+    timezone: Europe/Prague
+    prompt: Write today's standup draft following the standup skill, then update memory/progress.md.
+
+budget:
+  per_run_usd: 0.25
+  per_day_usd: 0.5
+
+# Precedence: deny, then require, then allow. Unlisted tools ask.
+policy:
+  approvals:
+    deny:
+      - mcp__github__merge_*
+      - mcp__github__delete_*
+      - mcp__github__push_*
+    require:
+      - Bash
+      - Write
+      - Edit
+      - WebFetch
+      # Posting anywhere: a comment, an issue, a review, a discussion.
+      - mcp__github__add_*
+      - mcp__github__create_*
+      - mcp__github__update_*
+      - mcp__github__issue_write
+      - mcp__github__pull_request_review_write
+      - mcp__github__submit_*
+    allow:
+      - Read
+      - Glob
+      - Grep
+      - ToolSearch
+      - mcp__github__get_*
+      - mcp__github__list_*
+      - mcp__github__search_*
+      - mcp__github__issue_read
+      - mcp__github__pull_request_read

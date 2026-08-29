@@ -59,6 +59,80 @@ Prebuilt images and a two-file compose are coming with the first public release.
 2. It writes the bot's folder under `./bots` and runs the bot once, immediately, so you see what it does.
 3. The routine it set up stays paused until you have looked at that first run and switched it on.
 
+## Example bots
+
+[`bots/examples/`](./bots/examples) holds five complete bot folders: `BOT.md`, `bot.yaml`, one skill and a `memory/` template each, written to the [bot folder format](./docs/bot-format.md). You can copy one into `./bots` today, replace the placeholders and validate it; running it comes with the runtime (planned), so a copied bot does nothing yet. Each card says what the bot does, when it runs, what asks for your approval, and what its policy denies outright: a denied call is refused without asking, everything under **Asks** happens only if you approve it.
+
+### Inbox briefing
+
+- **Does:** reads what arrived in your webmail overnight, in your own Chrome tab, and writes one short briefing to `memory/briefings/<date>.md`.
+- **Runs:** weekdays at 07:30 (`Europe/Prague`).
+- **Asks:** every click, keystroke, tab switch and navigation in your browser; writing a file; every shell command.
+- **Never:** runs a script in your browser, uploads a file, or closes it. Sending, replying, archiving and deleting are clicks, so the bot has to ask for each one.
+
+Add to drobek bot:
+
+```sh
+cp -r bots/examples/inbox-briefing bots/inbox-briefing
+pnpm --filter @drobek-bot/bot-format validate bots/inbox-briefing
+```
+
+### GitHub briefing
+
+- **Does:** summarises failing pull requests, review requests and open issues across the repositories your account can see, with proposed comments kept as drafts.
+- **Runs:** weekdays at 08:00.
+- **Asks:** posting a comment or a review, any change to an issue or a pull request, every shell command (the `gh` fallback included).
+- **Never:** merges, deletes, pushes, or touches your notifications.
+
+Add to drobek bot:
+
+```sh
+cp -r bots/examples/github-briefing bots/github-briefing
+pnpm --filter @drobek-bot/bot-format validate bots/github-briefing
+```
+
+### PR triage
+
+- **Does:** runs new and updated pull requests through a checklist (size, missing description, failing checks) and proposes labels and at most one comment each.
+- **Runs:** weekdays at 09:15, 12:15 and 15:15.
+- **Asks:** every label and every comment, with the text shown; creating a label the repository does not have.
+- **Never:** merges, pushes, reviews, or opens a pull request; it has no shell, so nothing it does can reach a branch.
+
+Add to drobek bot:
+
+```sh
+cp -r bots/examples/pr-triage bots/pr-triage
+pnpm --filter @drobek-bot/bot-format validate bots/pr-triage
+```
+
+### Sentry watch
+
+- **Does:** looks at new and regressed Sentry issues, groups them by cause and drafts an incident note in `memory/incidents/<date>.md`; most hours it reports nothing in one line.
+- **Runs:** every hour, five past.
+- **Asks:** assigning or resolving an issue, running Seer, writing the note, every shell command.
+- **Never:** deletes anything or calls the raw Sentry API.
+
+Add to drobek bot:
+
+```sh
+cp -r bots/examples/sentry-watch bots/sentry-watch
+pnpm --filter @drobek-bot/bot-format validate bots/sentry-watch
+```
+
+### Standup notes
+
+- **Does:** turns yesterday's commits, closed issues and today's open review requests into a three-line standup draft in `memory/standups/<date>.md`.
+- **Runs:** weekdays at 08:45.
+- **Asks:** posting the draft anywhere; writing the file; every shell command.
+- **Never:** merges, deletes or pushes. It reports on your own work only, never on anyone else's.
+
+Add to drobek bot:
+
+```sh
+cp -r bots/examples/standup-notes bots/standup-notes
+pnpm --filter @drobek-bot/bot-format validate bots/standup-notes
+```
+
 ## How it works
 
 ```mermaid
