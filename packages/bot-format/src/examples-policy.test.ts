@@ -28,6 +28,7 @@ import type { LoadedBot } from "./types.js";
 
 const EXAMPLES = fileURLToPath(new URL("../../../bots/examples", import.meta.url));
 const CATALOG = fileURLToPath(new URL("../../../catalog/mcp.json", import.meta.url));
+const README = fileURLToPath(new URL("../../../README.md", import.meta.url));
 
 const exampleDirs = readdirSync(EXAMPLES, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -492,18 +493,6 @@ const PROSE_NON_TOOL_IDENTIFIERS: ReadonlySet<string> = new Set([
   "get_status",
 ]);
 
-/** Core Claude Code tools, named in prose alongside MCP tools; never snake_case themselves, kept here in case prose ever lowercases one. */
-const CORE_TOOL_NAMES: ReadonlySet<string> = new Set([
-  "read",
-  "write",
-  "edit",
-  "bash",
-  "glob",
-  "grep",
-  "webfetch",
-  "toolsearch",
-]);
-
 /** The content of every backtick-delimited inline code span in `text`, fenced ``` code blocks (example output, not instructions) excluded. */
 function inlineCodeSpans(text: string): string[] {
   const withoutFencedBlocks = text.replace(/```[\s\S]*?```/g, "");
@@ -535,7 +524,6 @@ describe("bots/examples: every tool-shaped identifier in a bot's prose is a real
         for (const identifier of inlineCodeSpans(text)) {
           if (!TOOL_SHAPED_IDENTIFIER.test(identifier)) continue;
           if (PROSE_NON_TOOL_IDENTIFIERS.has(identifier)) continue;
-          if (CORE_TOOL_NAMES.has(identifier.toLowerCase())) continue;
 
           const isRealTool = surfaces.some((surface) => surface.has(identifier));
           expect(
@@ -544,6 +532,173 @@ describe("bots/examples: every tool-shaped identifier in a bot's prose is a real
           ).toBe(true);
         }
       }
+    });
+  }
+});
+
+const EXAMPLE_BOTS_HEADING = "\n## Example bots\n";
+
+/**
+ * The body of README.md's "## Example bots" section, up to the next `## `
+ * heading. Same shape as `examples-readme.test.ts`'s own section helper,
+ * kept local here rather than imported across test files.
+ */
+function exampleBotsSection(): string {
+  const text = readFileSync(README, "utf8");
+  const headingIndex = text.indexOf(EXAMPLE_BOTS_HEADING);
+  if (headingIndex === -1) {
+    throw new Error('README.md has no "## Example bots" section');
+  }
+  const sectionStart = headingIndex + EXAMPLE_BOTS_HEADING.length;
+  const nextHeadingIndex = text.indexOf("\n## ", sectionStart);
+  return text.slice(sectionStart, nextHeadingIndex === -1 ? text.length : nextHeadingIndex);
+}
+
+/** Each example bot's `### ` card heading in the README — not derivable from its slug (`GitHub briefing`, `PR triage`), so spelled out once. */
+const CARD_HEADING: Record<string, string> = {
+  "inbox-briefing": "Inbox briefing",
+  "github-briefing": "GitHub briefing",
+  "pr-triage": "PR triage",
+  "sentry-watch": "Sentry watch",
+  "standup-notes": "Standup notes",
+};
+
+/** One example bot's card body: `### <heading>` up to the next `### ` or the end of the section. */
+function cardSection(slug: string): string {
+  const heading = CARD_HEADING[slug];
+  if (heading === undefined) {
+    throw new Error(`no README card heading recorded for "${slug}"`);
+  }
+  const section = exampleBotsSection();
+  const cardHeading = `### ${heading}\n`;
+  const cardStart = section.indexOf(cardHeading);
+  if (cardStart === -1) {
+    throw new Error(`README.md has no "### ${heading}" card`);
+  }
+  const bodyStart = cardStart + cardHeading.length;
+  const nextCardStart = section.indexOf("\n### ", bodyStart);
+  return section.slice(bodyStart, nextCardStart === -1 ? section.length : nextCardStart);
+}
+
+/** The text after `- **<label>:**` on its line in a card body, or undefined when the card has no such line. */
+function cardLine(card: string, label: string): string | undefined {
+  const pattern = new RegExp(`^- \\*\\*${label}:\\*\\* (.+)$`, "m");
+  const match = pattern.exec(card);
+  return match === null ? undefined : match[1];
+}
+
+/**
+ * Bare MCP tool names for a card verb: `exact` names, and `prefixes` that
+ * expand to every real tool with that prefix on a server's recorded
+ * `MCP_TOOL_SURFACE` (a server with none, `playwright`, is trusted as
+ * named — this ratchet checks deny *coverage*, not tool existence; the
+ * prose ratchet above already owns existence). `core` names a Claude Code
+ * tool used as-is, independent of any server.
+ */
+interface VerbRule {
+  readonly exact?: readonly string[];
+  readonly prefixes?: readonly string[];
+  readonly core?: readonly string[];
+}
+
+/**
+ * Every verb the gallery's five README "Never" lines actually use, and
+ * what would perform it. `pushes` also names `Bash`: a bot whose policy
+ * denies `mcp__github__push_*` but merely asks about `Bash` can still be
+ * asked to `git push` from the shell, so the tool alone denied is not the
+ * verb denied — the same reason `pr-triage`'s card can promise "no shell"
+ * only because its policy denies `Bash` outright, not just the GitHub push
+ * tool. This is the same bug class as the phantom-tool ratchets above, one
+ * level up: GitHub's MCP tools consolidate verbs behind a `method`
+ * argument (`label_write` does create/update/delete; `issue_write` carries
+ * a `state`), so a `deny: create_*` prefix rule does not on its own stop
+ * every way to create something, and English prose cannot be trusted to
+ * track that by itself.
+ */
+const VERB_RULES: Record<string, VerbRule> = {
+  merges: { exact: ["merge_pull_request"] },
+  pushes: { exact: ["push_files"], core: ["Bash"] },
+  deletes: { prefixes: ["delete_"] },
+  reviews: { exact: ["pull_request_review_write"] },
+  "opens a pull request": { exact: ["create_pull_request"] },
+  "touches your notifications": {
+    exact: ["dismiss_notification", "mark_all_notifications_read"],
+  },
+  "uploads a file": { exact: ["browser_file_upload"] },
+  "runs a script": { exact: ["browser_evaluate"], prefixes: ["browser_run_code"] },
+  closes: { exact: ["browser_close"] },
+  "calls the raw Sentry API": { exact: ["execute_sentry_tool"] },
+};
+
+/** `mcp__<server>__<tool>` for every tool `rule` names, resolved against the servers `serverNames` declares, plus any `core` tool name as-is. */
+function verbTools(rule: VerbRule, serverNames: readonly string[]): string[] {
+  const tools = [...(rule.core ?? [])];
+  for (const serverName of serverNames) {
+    const surface = MCP_TOOL_SURFACE[serverName];
+    for (const name of rule.exact ?? []) {
+      if (surface === undefined || surface.has(name)) tools.push(`mcp__${serverName}__${name}`);
+    }
+    for (const prefix of rule.prefixes ?? []) {
+      if (surface === undefined) {
+        tools.push(`mcp__${serverName}__${prefix}`);
+        continue;
+      }
+      for (const name of surface) {
+        if (name.startsWith(prefix)) tools.push(`mcp__${serverName}__${name}`);
+      }
+    }
+  }
+  return tools;
+}
+
+/**
+ * The ratchet a blind acceptance pass earned: a README card's `- **Never:**`
+ * line is a promise about what the bot cannot be made to do, and that
+ * promise is only true when `bot.yaml`'s `policy.approvals` actually denies
+ * every tool that would do it — not merely one of several ways to do it.
+ */
+describe("bots/examples: a card's Never list is backed by deny, not just prose", () => {
+  for (const slug of exampleDirs) {
+    it(`${slug}: every Never verb the README card uses is denied by the bot's policy`, async () => {
+      const neverLine = cardLine(cardSection(slug), "Never");
+      if (neverLine === undefined) {
+        throw new Error(`${slug}: README card has no "- **Never:**" line`);
+      }
+      const bot = await loadExampleBot(slug);
+      const approvals = approvalsOf(bot, slug);
+      const serverNames = declaredMcpServerNames(slug);
+
+      for (const [verb, rule] of Object.entries(VERB_RULES)) {
+        if (!neverLine.includes(verb)) continue;
+        for (const tool of verbTools(rule, serverNames)) {
+          expect(
+            decideApproval(tool, approvals),
+            `${slug}: card promises "Never ... ${verb} ...", but "${tool}" decides "${decisionOrThrow(tool, approvals)}", not "deny"`,
+          ).toBe("deny");
+        }
+      }
+    });
+  }
+});
+
+/**
+ * The converse, for the shell specifically: `Bash` reaches past whatever a
+ * bot's MCP deny rules cover (see `pushes` above), so a bot that can be
+ * asked to run any command has to say so. Only a bot whose policy denies
+ * `Bash` outright (`pr-triage`) is exempt from mentioning it.
+ */
+describe("bots/examples: a card whose Bash is not denied says so under Asks", () => {
+  for (const slug of exampleDirs) {
+    it(`${slug}: Bash denied outright, or the card's Asks line mentions the shell`, async () => {
+      const bot = await loadExampleBot(slug);
+      const approvals = approvalsOf(bot, slug);
+      if (decideApproval("Bash", approvals) === "deny") return;
+
+      const asksLine = cardLine(cardSection(slug), "Asks");
+      expect(
+        asksLine !== undefined && /\bshell\b/i.test(asksLine),
+        `${slug}: Bash is not denied by policy.approvals, but the README card's "- **Asks:**" line does not mention the shell`,
+      ).toBe(true);
     });
   }
 });
