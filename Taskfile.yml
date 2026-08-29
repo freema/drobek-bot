@@ -1,5 +1,9 @@
 version: "3"
 
+vars:
+  GIT_SHA:
+    sh: git -C {{.ROOT_DIR}} rev-parse --short HEAD 2>/dev/null || echo dev
+
 tasks:
   verify:
     desc: Gate — typecheck, lint and tests; the exit code is the verdict
@@ -7,10 +11,17 @@ tasks:
       - pnpm install --frozen-lockfile --prefer-offline
       - pnpm verify
 
-  dev:
-    desc: Start the local stack
+  check:
+    desc: Alias of verify
     cmds:
-      - docker compose up -d --build
+      - task: verify
+
+  dev:
+    desc: Build and start the local stack, wait until it is healthy
+    env:
+      GIT_SHA: "{{.GIT_SHA}}"
+    cmds:
+      - docker compose up -d --build --wait
 
   stop:
     desc: Stop the local stack (keeps data)

@@ -7,7 +7,7 @@ Keep it short: working state, not a changelog — git history is the changelog.
 ## Current
 
 - **In flight:** nothing.
-- **Where it stands:** repository bootstrapped — license, agent contract, loop config, gate (`task verify`, currently trivially green because there is no code yet), dev MCP servers. Next: the monorepo skeleton with `docker compose`, then the runtime spike on the owner's machine.
+- **Where it stands:** monorepo skeleton in place — `apps/{web,api,worker}` + `packages/contracts`; compose stack (postgres, redis, api, worker, web on :3050); `/api/health` reports version, commit and the postgres/redis/worker checks; gate (`task verify` = typecheck, lint, tests) and CI (gate + image builds, GHCR push from `main`). ESLint 10 is the lint baseline. Next: the runtime spike on the owner's machine, then the ComputerProvider and the ACP runtime.
 
 ## Failed approaches (do not retry)
 
