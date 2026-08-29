@@ -12,8 +12,15 @@ import { ComputerError, type Computer, type RuntimeEvent } from "@drobek-bot/cor
 
 import { parseTranscriptLine, type TranscriptUsage } from "./transcript.js";
 
-/** A transcript being followed. `stop` is safe to call twice. */
+/** A transcript being followed. Both calls are safe to make twice. */
 export interface TranscriptTail {
+  /**
+   * Reads the whole transcript once and emits every usage the tail has not
+   * delivered yet. The point of the run's last look: `tail -F` is killed with
+   * lines still in its buffer, and a turn's usage lands seconds after the turn
+   * itself ends, so without this the final line of nearly every run is lost.
+   */
+  reconcile(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -24,6 +31,33 @@ function tokenKey(usage: TranscriptUsage): string {
     usage.cacheReadTokens,
     usage.cacheWriteTokens,
   ].join(":");
+}
+
+/**
+ * Records what `line` says and hands back the usage when it is news.
+ *
+ * The one dedupe rule, shared by the seed, the tail and the reconcile: a
+ * message is remembered by its id together with its token counts, because the
+ * CLI rewrites a message's line as the message grows. An identical line is
+ * dropped, a changed one reported.
+ */
+function accept(seen: Map<string, string>, line: string): TranscriptUsage | undefined {
+  const usage = parseTranscriptLine(line);
+  if (usage === null) return undefined;
+  const key = tokenKey(usage);
+  if (seen.get(usage.messageId) === key) return undefined;
+  seen.set(usage.messageId, key);
+  return usage;
+}
+
+/** The transcript's text; empty when the session has not written one yet. */
+async function readTranscript(computer: Computer, path: string): Promise<string> {
+  try {
+    return new TextDecoder().decode(await computer.readFile(path));
+  } catch (error) {
+    if (error instanceof ComputerError && error.kind === "file-not-found") return "";
+    throw error;
+  }
 }
 
 function toEvent(usage: TranscriptUsage): RuntimeEvent {
@@ -38,13 +72,10 @@ function toEvent(usage: TranscriptUsage): RuntimeEvent {
 }
 
 /**
- * Follows `path` in the box and emits one `usage` event per assistant message.
- *
- * The CLI rewrites a message's line as the message grows, and a resumed
- * session's transcript already holds every earlier turn, so what has been seen
- * is remembered by message id and token counts: a repeated line is silently
- * dropped, a changed one reported. Lines already in the file when the tail
- * starts belong to earlier runs and are seeded, not emitted.
+ * Follows `path` in the box and emits one `usage` event per assistant message,
+ * live, while the turn is still running. What counts as news is `accept`'s
+ * rule; the run's closing `reconcile` uses the same one, so a line delivered
+ * by the tail is never emitted a second time at the end.
  */
 export async function tailUsage(
   computer: Computer,
@@ -52,32 +83,27 @@ export async function tailUsage(
   emit: (event: RuntimeEvent) => void,
 ): Promise<TranscriptTail> {
   const seen = new Map<string, string>();
-  let existing = "";
-  try {
-    existing = new TextDecoder().decode(await computer.readFile(path));
-  } catch (error) {
-    // A new session has no transcript until the first turn writes one.
-    if (!(error instanceof ComputerError) || error.kind !== "file-not-found") throw error;
-  }
-  for (const line of existing.split("\n")) {
-    const usage = parseTranscriptLine(line);
-    if (usage !== null) seen.set(usage.messageId, tokenKey(usage));
+  // Whatever is already there belongs to earlier runs: recorded, not emitted.
+  for (const line of (await readTranscript(computer, path)).split("\n")) {
+    accept(seen, line);
   }
 
   const process = await computer.attach(["tail", "-n", "+1", "-F", path]);
   process.stderr.resume();
   const lines = createInterface({ input: process.stdout });
   lines.on("line", (line: string) => {
-    const usage = parseTranscriptLine(line);
-    if (usage === null) return;
-    const key = tokenKey(usage);
-    if (seen.get(usage.messageId) === key) return;
-    seen.set(usage.messageId, key);
-    emit(toEvent(usage));
+    const usage = accept(seen, line);
+    if (usage !== undefined) emit(toEvent(usage));
   });
 
   let stopped = false;
   return {
+    async reconcile(): Promise<void> {
+      for (const line of (await readTranscript(computer, path)).split("\n")) {
+        const usage = accept(seen, line);
+        if (usage !== undefined) emit(toEvent(usage));
+      }
+    },
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

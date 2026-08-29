@@ -327,11 +327,24 @@ export class AcpRuntime implements AgentRuntime {
     this.#runs.delete(run.runId);
     run.inbox.ended = true;
     cancelPending(run.inbox);
+    // Stop listening, then take one last look at the transcript before the
+    // queue closes. Both halves matter: `tail -F` is killed with lines still
+    // buffered, and a turn's usage lands seconds after `turn_completed`, which
+    // is exactly when a caller ends the run — so without this final read the
+    // last usage line of nearly every run is lost, and "usage is complete when
+    // the stream closes" would be a promise the runtime does not keep.
+    //
+    // Every step runs even if an earlier one failed, and the first failure is
+    // still reported. Losing the reconcile is bad; leaking the agent process
+    // in the box, or leaving a consumer waiting on a stream that never closes,
+    // is worse — so teardown wins and the failure surfaces afterwards.
     const stopped = await settle(() => run.tail.stop());
+    const reconciled = await settle(() => run.tail.reconcile());
     const killed = await settle(() => run.process.kill());
     run.inbox.events.close();
-    if (stopped !== undefined) throw stopped;
-    if (killed !== undefined) throw killed;
+    for (const failure of [stopped, reconciled, killed]) {
+      if (failure !== undefined) throw failure;
+    }
   }
 
   #require(handle: RunHandle): Run {

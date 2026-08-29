@@ -34,7 +34,12 @@ export type ApprovalDecision = "allow_once" | "allow_always" | "reject_once" | "
  * quietly turns spend accounting into an undercount and a spend cap into no
  * cap at all.
  *
- * The stream ends when `endRun` closes it. That is the only end there is.
+ * The stream ends when `endRun` closes it. That is the only end there is —
+ * and it carries the guarantee worth relying on: **when the stream closes, the
+ * run's `usage` is complete.** `endRun` reads the agent's transcript one last
+ * time and emits whatever had not been delivered yet, before closing. So a
+ * consumer that drains to the end has every token the run spent; one that
+ * stops earlier has an undercount, and no amount of waiting fixes it.
  */
 export type RuntimeEvent =
   | { readonly kind: "session_started"; readonly sessionId: string }
@@ -138,7 +143,10 @@ export interface AgentRuntime {
    * still to come.
    */
   events(run: RunHandle): AsyncIterable<RuntimeEvent>;
-  /** Ends the run and releases what it holds in the box. Safe to call twice. */
+  /**
+   * Ends the run and releases what it holds in the box. Emits any `usage` the
+   * run had not reported yet, then closes the event stream. Safe to call twice.
+   */
   endRun(run: RunHandle): Promise<void>;
 }
 
