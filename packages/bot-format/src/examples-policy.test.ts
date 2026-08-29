@@ -81,6 +81,23 @@ async function readSkillTexts(dir: string): Promise<string[]> {
   return Promise.all(names.map((name) => readFile(path.join(skillsDir, name, SKILL_MD), "utf8")));
 }
 
+/** Absolute paths to `BOT.md` and every `skills/<name>/SKILL.md` under a bot's folder — the prose the agent inside the box actually reads. */
+async function proseFilePaths(dir: string): Promise<string[]> {
+  const skillsDir = path.join(dir, SKILLS_DIR);
+  let skillNames: string[];
+  try {
+    skillNames = (await readdir(skillsDir, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    skillNames = [];
+  }
+  return [
+    path.join(dir, BOT_MD),
+    ...skillNames.map((name) => path.join(skillsDir, name, SKILL_MD)),
+  ];
+}
+
 /** Every file under `dir`, recursively, as absolute paths. */
 async function collectFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
@@ -131,12 +148,19 @@ describe("bots/examples: core tools follow read freely, write with approval, des
  *     tools/special/, which reach clients as `search_sentry_tools` and
  *     `execute_sentry_tool`
  *
- * `playwright` has no recorded surface here on purpose: the ratchet test
+ * `playwright` has no recorded surface here on purpose: every ratchet test
  * below skips any server that isn't a key of this table.
  *
  * `mcpTool` is the only way this file spells out an `mcp__<server>__<tool>`
  * literal, so a name that isn't in the surface below fails fast at module
  * load instead of quietly asserting on a tool that doesn't exist.
+ *
+ * This table backs two checks: the policy ratchet below, which pins what
+ * `bot.yaml`'s `policy.approvals` is allowed to name, and the prose ratchet
+ * further down, which pins what `BOT.md` and `SKILL.md` — the instructions
+ * the agent inside the box actually reads — are allowed to tell it to call.
+ * A bot can be denied a phantom tool by policy and still be told by its own
+ * prose to call one; only the second check catches that.
  */
 const MCP_TOOL_SURFACE: Record<string, ReadonlySet<string>> = {
   github: new Set([
@@ -443,6 +467,84 @@ describe("bots/examples: every literal MCP tool a policy names is real", () => {
         }
       });
     }
+  }
+});
+
+/** A lowercase snake_case token with at least one underscore — the shape every real MCP tool name has. */
+const TOOL_SHAPED_IDENTIFIER = /^[a-z][a-z0-9_]*_[a-z0-9_]+$/;
+
+/**
+ * Identifiers that match `TOOL_SHAPED_IDENTIFIER` but are not tool names —
+ * a parameter of a real tool, or one of that parameter's enum values,
+ * written inline next to the tool it belongs to. Each entry is justified
+ * below; a name that matches the shape and isn't a real tool *and* isn't
+ * justified here is a finding, never something to add to this list to get
+ * green.
+ */
+const PROSE_NON_TOOL_IDENTIFIERS: ReadonlySet<string> = new Set([
+  // A boolean parameter of the github server's `get_job_logs` tool
+  // ("only the failed jobs' logs"), not a tool itself.
+  "failed_only",
+  // Values of `pull_request_read`'s own `method` parameter: GitHub folded
+  // the old get_pull_request_files / get_pull_request_status tools into
+  // this one tool, selected with `method: get_files` / `method: get_status`.
+  "get_files",
+  "get_status",
+]);
+
+/** Core Claude Code tools, named in prose alongside MCP tools; never snake_case themselves, kept here in case prose ever lowercases one. */
+const CORE_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "read",
+  "write",
+  "edit",
+  "bash",
+  "glob",
+  "grep",
+  "webfetch",
+  "toolsearch",
+]);
+
+/** The content of every backtick-delimited inline code span in `text`, fenced ``` code blocks (example output, not instructions) excluded. */
+function inlineCodeSpans(text: string): string[] {
+  const withoutFencedBlocks = text.replace(/```[\s\S]*?```/g, "");
+  const spans = withoutFencedBlocks.match(/`[^`\n]+`/g) ?? [];
+  return spans.map((span) => span.slice(1, -1));
+}
+
+/**
+ * The ratchet a policy check can never cover: the instructions a bot's own
+ * `BOT.md` and `SKILL.md` files give the agent inside the box. A tool named
+ * there that does not exist is a broken bot no matter how correct its
+ * policy is — a bot's policy can deny a phantom tool by name and its prose
+ * can still tell it to call that same phantom tool. Checked only against
+ * the surfaces of servers the bot actually declares; a bot with no recorded
+ * surface for any of them (`playwright`-only) is skipped entirely, as in
+ * the policy ratchet above.
+ */
+describe("bots/examples: every tool-shaped identifier in a bot's prose is a real tool", () => {
+  for (const slug of exampleDirs) {
+    const surfaces = declaredMcpServerNames(slug)
+      .map((serverName) => MCP_TOOL_SURFACE[serverName])
+      .filter((surface): surface is ReadonlySet<string> => surface !== undefined);
+    if (surfaces.length === 0) continue;
+
+    it(`${slug}: BOT.md and every SKILL.md name only real tools`, async () => {
+      const dir = path.join(EXAMPLES, slug);
+      for (const file of await proseFilePaths(dir)) {
+        const text = await readFile(file, "utf8");
+        for (const identifier of inlineCodeSpans(text)) {
+          if (!TOOL_SHAPED_IDENTIFIER.test(identifier)) continue;
+          if (PROSE_NON_TOOL_IDENTIFIERS.has(identifier)) continue;
+          if (CORE_TOOL_NAMES.has(identifier.toLowerCase())) continue;
+
+          const isRealTool = surfaces.some((surface) => surface.has(identifier));
+          expect(
+            isRealTool,
+            `${slug}: ${path.relative(EXAMPLES, file)} names "${identifier}", which is not a real tool on any server this bot declares`,
+          ).toBe(true);
+        }
+      }
+    });
   }
 });
 
