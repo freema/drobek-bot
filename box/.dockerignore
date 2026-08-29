@@ -1,0 +1,3 @@
+# Only the Dockerfile matters for the build; the host-side spike package and
+# its run output must not be sent as build context.
+spike/
