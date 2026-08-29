@@ -1,0 +1,56 @@
+# Reads the morning inbox in the person's own browser and writes one briefing. Never sends.
+version: 1
+model: claude-sonnet-5
+auth: api_key
+# The bot drives the host's Chrome over CDP; the app points the playwright server at it for the run.
+browser: host-cdp
+requires: []
+secrets: []
+
+mcp:
+  playwright:
+    catalog: playwright
+
+routines:
+  - name: weekday-briefing
+    cron: "30 7 * * 1-5"
+    timezone: Europe/Prague
+    prompt: Prepare this morning's inbox briefing following the briefing skill, then update memory/progress.md.
+
+budget:
+  per_run_usd: 0.5
+  per_day_usd: 1.5
+
+# Precedence: deny, then require, then allow. Unlisted tools ask.
+policy:
+  approvals:
+    deny:
+      # Scripts and uploads in the person's signed-in browser, and closing it.
+      - mcp__playwright__browser_evaluate
+      - mcp__playwright__browser_run_code*
+      - mcp__playwright__browser_file_upload
+      - mcp__playwright__browser_close
+    require:
+      # Every interaction in the mailbox: a click can send or delete. browser_tabs also closes tabs.
+      - mcp__playwright__browser_tabs
+      - mcp__playwright__browser_click
+      - mcp__playwright__browser_navigate*
+      - mcp__playwright__browser_type
+      - mcp__playwright__browser_press_key
+      - mcp__playwright__browser_fill_form
+      - mcp__playwright__browser_select_option
+      - mcp__playwright__browser_handle_dialog
+      - mcp__playwright__browser_drag
+      - Write
+      - Edit
+      - Bash
+      - WebFetch
+    allow:
+      # Reading only.
+      - Read
+      - Glob
+      - Grep
+      - ToolSearch
+      - mcp__playwright__browser_snapshot
+      - mcp__playwright__browser_take_screenshot
+      - mcp__playwright__browser_wait_for
