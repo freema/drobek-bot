@@ -1,3 +1,16 @@
+export {
+  ComputerError,
+  type AttachOptions,
+  type AttachedProcess,
+  type CommandResult,
+  type Computer,
+  type ComputerBind,
+  type ComputerErrorKind,
+  type ComputerProvider,
+  type ComputerSpec,
+  type FileEntry,
+  type RunCommandOptions,
+} from "./computer.js";
 export { RUN_TRANSITIONS, canTransition } from "./run-state.js";
 export {
   ANTHROPIC_API_KEY,
