@@ -6,8 +6,9 @@ Keep it short: working state, not a changelog — git history is the changelog.
 
 ## Current
 
-- **In flight:** the thin-box ACP spike (`box/`, branch `spike/thin-box-acp`) — image, host-side probes and findings are in `box/README.md`; awaiting the owner's read of the findings before the ComputerProvider and the ACP runtime are designed.
-- **Where it stands:** monorepo skeleton in place — `apps/{web,api,worker}` + `packages/contracts`; compose stack (postgres, redis, api, worker, web on :3050); `/api/health` reports version, commit and the postgres/redis/worker checks; gate (`task verify` = typecheck, lint, tests) and CI (gate + image builds, GHCR push from `main`). ESLint 10 is the lint baseline. The box image (`box/Dockerfile`) builds and runs the unmodified `claude` 2.1.251 behind the ACP adapter 0.16.2; all seven spike questions have measured answers.
+- **In flight:** nothing in the repo. The box spike's human-only part (subscription login inside the box, a run billed to the subscription, one request through the host VPN, share of the weekly limit) is with the owner.
+- **Where it stands:** monorepo skeleton (`apps/{web,api,worker}` + `packages/contracts`, compose stack on :3050, `/api/health`, gate + CI with GHCR push from `main`). Box image `box/Dockerfile` (unmodified `claude` 2.1.251 behind the ACP adapter 0.16.2) plus the spike package `box/spike`; every spike question has a measured answer in `box/README.md`. Next: the ComputerProvider and the ACP runtime, designed from the spike findings — the gate is a `PreToolUse` hook inside the box (ACP permission requests alone miss read-only shell and in-cwd reads), usage comes from the transcript, the model is pinned through settings in the box, the CDP endpoint is an IP.
+- **Decisions taken unless the owner objects:** a denied action ends the turn (the runtime re-prompts); the ACP adapter stays for now despite its unused second CLI copy (123 MB).
 
 ## Failed approaches (do not retry)
 
@@ -17,6 +18,4 @@ Keep it short: working state, not a changelog — git history is the changelog.
 
 ## Open questions for the owner
 
-- Read-only shell commands and `Read` inside the working directory never reach the permission gate (auto-allowed by the CLI before `canUseTool`); only a `PreToolUse` hook sees every tool call. Is "gate only what the CLI escalates" acceptable for the walking skeleton, or must the runtime own a hook inside the box?
-- A rejected permission aborts the whole turn (the adapter answers with `interrupt: true`); the model cannot continue past a denied action within the same prompt. Acceptable, or should the runtime re-prompt after a deny?
-- The adapter bundles a second copy of the CLI (2.1.44, via its Agent SDK dependency) that is never executed; it costs 123 MB of image. Live with it, or replace the adapter with a direct Agent SDK driver later?
+- none
