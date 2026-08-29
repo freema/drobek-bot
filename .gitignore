@@ -1,0 +1,24 @@
+# dependencies / build
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# environment & secrets — never commit
+.env
+.env.*
+!.env.example
+
+# local agent workflow (tracker-coupled, kept out of the repo on purpose)
+.claude/commands/
+.claude/settings.local.json
+
+# data & runtime
+data/
+bots/*/memory/
+*.log
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
