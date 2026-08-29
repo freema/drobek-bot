@@ -13,6 +13,16 @@ export {
 } from "./computer.js";
 export { RUN_TRANSITIONS, canTransition } from "./run-state.js";
 export {
+  RuntimeError,
+  type AgentRuntime,
+  type ApprovalDecision,
+  type RunHandle,
+  type RuntimeDescription,
+  type RuntimeErrorKind,
+  type RuntimeEvent,
+  type StartRunInput,
+} from "./runtime.js";
+export {
   ANTHROPIC_API_KEY,
   BOX_ENV_DENIED_NAMES,
   BOX_ENV_DENIED_PREFIXES,

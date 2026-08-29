@@ -246,6 +246,31 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0))
 
+  packages/runtime-acp:
+    dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.4.0
+        version: 1.4.0(zod@4.5.2)
+      '@drobek-bot/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@drobek-bot/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^4.5.2
+        version: 4.5.2
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0))
+
   tests/policy:
     devDependencies:
       '@types/node':
